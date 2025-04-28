@@ -80,7 +80,7 @@ void display()
         drawCube();
     if (isPyramid)
         drawPyramid();
-    
+
     // Swap buffers (double buffering)
     glutSwapBuffers();
 }
@@ -229,36 +229,139 @@ void specialKeyListener(int key, int x, int y)
     {
     case GLUT_KEY_LEFT:
     {
-        eyex -= v;
-        break; // Move eye left
+        // Calculate the vector from the camera to the reference point
+        double cx = centerx - eyex;
+        double cy = centery - eyey;
+        double cz = centerz - eyez;
+
+        // Calculate the cross product of the head vector and the camera-reference point vector
+        double leftx = upy * cz - upz * cy;
+        double lefty = upz * cx - upx * cz;
+        double leftz = upx * cy - upy * cx;
+
+        // Normalize the left vector
+        double length = sqrt(leftx * leftx + lefty * lefty + leftz * leftz);
+        leftx /= length;
+        lefty /= length;
+        leftz /= length;
+
+        // Move the camera and reference point in the left direction
+        eyex += leftx * v;
+        eyey += lefty * v;
+        eyez += leftz * v;
+
+        centerx += leftx * v;
+        centery += lefty * v;
+        centerz += leftz * v;
+
+        break;
     }
 
     case GLUT_KEY_RIGHT:
     {
-        eyex += v;
-        break; // Move eye right
+        // Calculate the vector from the camera to the reference point
+        double cx = centerx - eyex;
+        double cy = centery - eyey;
+        double cz = centerz - eyez;
+
+        // Calculate the cross product of the head vector and the camera-reference point vector
+        double rightx = upy * cz - upz * cy;
+        double righty = upz * cx - upx * cz;
+        double rightz = upx * cy - upy * cx;
+
+        // Normalize the right vector   
+        double length = sqrt(rightx * rightx + righty * righty + rightz * rightz);
+        rightx /= length;
+        righty /= length;
+        rightz /= length;
+
+        // Move the camera and reference point in the right direction
+        eyex -= rightx * v;
+        eyey -= righty * v;
+        eyez -= rightz * v;
+
+        centerx -= rightx * v;
+        centery -= righty * v;
+        centerz -= rightz * v;
+
+        break;
     }
 
     case GLUT_KEY_UP:
     {
-        eyez += v;
-        break; // Move eye forward
+        // Calculate the vector from the camera to the reference point
+        double cx = centerx - eyex;
+        double cy = centery - eyey;
+        double cz = centerz - eyez;
+
+        // Normalize the vector
+        double length = sqrt(cx * cx + cy * cy + cz * cz);
+        cx /= length;
+        cy /= length;
+        cz /= length;
+
+        // Move the camera and reference point along the vector by a single unit
+        eyex += cx * v;
+        eyey += cy * v;
+        eyez += cz * v;
+
+        centerx += cx * v;
+        centery += cy * v;
+        centerz += cz * v;
+
+        break;
     }
 
     case GLUT_KEY_DOWN:
     {
-        eyez -= v;
-        break; // Move eye downward
+        // Calculate the vector from the camera to the reference point
+        double cx = centerx - eyex;
+        double cy = centery - eyey;
+        double cz = centerz - eyez;
+
+        // Normalize the vector
+        double length = sqrt(cx * cx + cy * cy + cz * cz);
+        cx /= length;
+        cy /= length;
+        cz /= length;
+
+        // Move the camera and reference point along the opposite direction of the vector by a single unit
+        eyex -= cx * v;
+        eyey -= cy * v;
+        eyez -= cz * v;
+
+        centerx -= cx * v;
+        centery -= cy * v;
+        centerz -= cz * v;
+
+        break;
     }
     case GLUT_KEY_PAGE_UP:
     {
-        eyey += v;
-        break; // Move eye up
+        // Move the camera and reference point along the head vector by a single unit
+        eyex += upx * v;
+        eyey += upy * v;
+        eyez += upz * v;
+
+        centerx += upx * v;
+        centery += upy * v;
+        centerz += upz * v;
+
+        break;
     }
+
     case GLUT_KEY_PAGE_DOWN:
     {
-        eyey -= v;
-        break; // Move eye down
+        // Move the camera and reference point along the opposite direction of the head vector by a single unit
+        eyex -= upx * v;
+        eyey -= upy * v;
+        eyez -= upz * v;
+
+        centerx -= upx * v;
+        centery -= upy * v;
+        centerz -= upz * v;
+
+        break;
     }
     }
 
@@ -295,10 +398,10 @@ void drawAxes()
 
 /**
  * Draws a cube with a checkered floor pattern.
- * 
+ *
  * The function sets up a 3D scene with a cube of fixed dimensions and colors.
- * It renders a checkered floor beneath the cube using alternating black and 
- * white squares. The walls of the cube are colored with a specific color, 
+ * It renders a checkered floor beneath the cube using alternating black and
+ * white squares. The walls of the cube are colored with a specific color,
  * and the ceiling is colored differently. The cube is centered at the origin.
  */
 void drawCubeWithCheckeredFloor()
