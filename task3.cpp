@@ -128,45 +128,257 @@ void keyboardListener(unsigned char key, int x, int y)
     // --- Camera Position Controls (eye coordinates) ---
     case '1':
     {
-        double lx = centerx - eyex;
-        double lz = centerz - eyez;
-        eyex = centerx + lx * cos(vinc) - lz * sin(vinc);
-        eyez = centerz + lx * sin(vinc) + lz * cos(vinc);
+        double caX = centerx - eyex;
+        double caY = centery - eyey;
+        double caZ = centerz - eyez;
+
+        double crossX = upy * caZ - upz * caY;
+        double crossY = upz * caX - upx * caZ;
+        double crossZ = upx * caY - upy * caX;
+
+        double crossMag = sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
+        double tX = crossX / crossMag;
+        double tY = crossY / crossMag;
+        double tZ = crossZ / crossMag;
+
+        double daX = tX * vinc;
+        double daY = tY * vinc;
+        double daZ = tZ * vinc;
+
+        centerx = centerx + daX;
+        centery = centery + daY;
+        centerz = centerz + daZ;
         break;
     }
     case '2':
     {
-        lx = centerx - eyex;
-        lz = centerz - eyez;
-        eyex = centerx + lx * cos(-vinc) - lz * sin(-vinc);
-        eyez = centerz + lx * sin(-vinc) + lz * cos(-vinc);
+
+        double caX = centerx - eyex;
+        double caY = centery - eyey;
+        double caZ = centerz - eyez;
+
+        double crossX = upy * caZ - upz * caY;
+        double crossY = upz * caX - upx * caZ;
+        double crossZ = upx * caY - upy * caX;
+
+        double crossMag = sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
+        double tX = crossX / crossMag;
+        double tY = crossY / crossMag;
+        double tZ = crossZ / crossMag;
+
+        double daX = tX * vinc;
+        double daY = tY * vinc;
+        double daZ = tZ * vinc;
+
+        centerx = centerx - daX;
+        centery = centery - daY;
+        centerz = centerz - daZ;
         break;
     }
-    case '3':
+    case '3': // Rotate camera upwards
     {
-        eyey += vinc;
+        float ROTATION_ANGLE = 0.03f;
+        float viewDirx = centerx - eyex;
+        float viewDiry = centery - eyey;
+        float viewDirz = centerz - eyez;
+
+        // Normalize the view direction
+        float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
+        viewDirx /= viewLength;
+        viewDiry /= viewLength;
+        viewDirz /= viewLength;
+
+        // Normalize the up vector
+        float upLength = sqrt(upx * upx + upy * upy + upz * upz);
+        upx /= upLength;
+        upy /= upLength;
+        upz /= upLength;
+
+        // Calculate the right vector (cross product of view direction and up vector)
+        float rightx = viewDiry * upz - viewDirz * upy;
+        float righty = viewDirz * upx - viewDirx * upz;
+        float rightz = viewDirx * upy - viewDiry * upx;
+
+        // Normalize the right vector
+        float rightLength = sqrt(rightx * rightx + righty * righty + rightz * rightz);
+        rightx /= rightLength;
+        righty /= rightLength;
+        rightz /= rightLength;
+
+        // Create rotation matrix around the right vector (pitch up)
+        float cosAngle = cos(ROTATION_ANGLE);
+        float sinAngle = sin(ROTATION_ANGLE);
+
+        // Rotate the view direction
+        float newViewDirx = viewDirx * cosAngle + upx * sinAngle;
+        float newViewDiry = viewDiry * cosAngle + upy * sinAngle;
+        float newViewDirz = viewDirz * cosAngle + upz * sinAngle;
+
+        // Rotate the up vector
+        float newUpx = upx * cosAngle - viewDirx * sinAngle;
+        float newUpy = upy * cosAngle - viewDiry * sinAngle;
+        float newUpz = upz * cosAngle - viewDirz * sinAngle;
+
+        // Update the center position
+        centerx = eyex + newViewDirx * viewLength;
+        centery = eyey + newViewDiry * viewLength;
+        centerz = eyez + newViewDirz * viewLength;
+
+        // Update the up vector
+        upx = newUpx;
+        upy = newUpy;
+        upz = newUpz;
         break;
     }
-    case '4':
+    case '4': // Rotate camera downwards
     {
-        eyey -= vinc;
+        float ROTATION_ANGLE = -0.03f;
+        float viewDirx = centerx - eyex;
+        float viewDiry = centery - eyey;
+        float viewDirz = centerz - eyez;
+
+        // Normalize the view direction
+        float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
+        viewDirx /= viewLength;
+        viewDiry /= viewLength;
+        viewDirz /= viewLength;
+
+        // Normalize the up vector
+        float upLength = sqrt(upx * upx + upy * upy + upz * upz);
+        upx /= upLength;
+        upy /= upLength;
+        upz /= upLength;
+
+        // Calculate the right vector (cross product of view direction and up vector)
+        float rightx = viewDiry * upz - viewDirz * upy;
+        float righty = viewDirz * upx - viewDirx * upz;
+        float rightz = viewDirx * upy - viewDiry * upx;
+
+        // Normalize the right vector
+        float rightLength = sqrt(rightx * rightx + righty * righty + rightz * rightz);
+        rightx /= rightLength;
+        righty /= rightLength;
+        rightz /= rightLength;
+
+        // Create rotation matrix around the right vector (pitch down)
+        float cosAngle = cos(ROTATION_ANGLE);
+        float sinAngle = sin(ROTATION_ANGLE);
+
+        // Rotate the view direction
+        float newViewDirx = viewDirx * cosAngle + upx * sinAngle;
+        float newViewDiry = viewDiry * cosAngle + upy * sinAngle;
+        float newViewDirz = viewDirz * cosAngle + upz * sinAngle;
+
+        // Rotate the up vector
+        float newUpx = upx * cosAngle - viewDirx * sinAngle;
+        float newUpy = upy * cosAngle - viewDiry * sinAngle;
+        float newUpz = upz * cosAngle - viewDirz * sinAngle;
+
+        // Update the center position
+        centerx = eyex + newViewDirx * viewLength;
+        centery = eyey + newViewDiry * viewLength;
+        centerz = eyez + newViewDirz * viewLength;
+
+        // Update the up vector
+        upx = newUpx;
+        upy = newUpy;
+        upz = newUpz;
         break;
     }
     case '5':
     {
 
-        lx = centerx - eyex;
-        lz = centerz - eyez;
-        eyex = centerx + lz * sin(vinc) + lx * cos(vinc);
-        eyez = centerz - lz * cos(vinc) + lx * sin(vinc);
+        float TILT_ANGLE = 0.03f; // Positive for clockwise, negative for counter-clockwise
+
+        // Calculate the view direction vector (from eye to center)
+        float viewDirx = centerx - eyex;
+        float viewDiry = centery - eyey;
+        float viewDirz = centerz - eyez;
+
+        // Normalize the view direction (rotation axis)
+        float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
+        viewDirx /= viewLength;
+        viewDiry /= viewLength;
+        viewDirz /= viewLength;
+
+        // Normalize the up vector
+        float upLength = sqrt(upx * upx + upy * upy + upz * upz);
+        upx /= upLength;
+        upy /= upLength;
+        upz /= upLength;
+
+        // Calculate the right vector (cross product of view direction and up vector)
+        float rightx = viewDiry * upz - viewDirz * upy;
+        float righty = viewDirz * upx - viewDirx * upz;
+        float rightz = viewDirx * upy - viewDiry * upx;
+
+        // Create rotation matrix using Rodrigues' rotation formula
+        float cosAngle = cos(TILT_ANGLE);
+        float sinAngle = sin(TILT_ANGLE);
+
+        // Rotate the up vector around the view direction axis
+        float newUpx = upx * cosAngle + rightx * sinAngle;
+        float newUpy = upy * cosAngle + righty * sinAngle;
+        float newUpz = upz * cosAngle + rightz * sinAngle;
+
+        // Update the up vector
+        upx = newUpx;
+        upy = newUpy;
+        upz = newUpz;
+
+        // Optional: Re-normalize the up vector
+        upLength = sqrt(upx * upx + upy * upy + upz * upz);
+        upx /= upLength;
+        upy /= upLength;
+        upz /= upLength;
         break;
     }
     case '6':
     {
-        lx = centerx - eyex;
-        lz = centerz - eyez;
-        eyex = centerx + lz * sin(-vinc) + lx * cos(-vinc);
-        eyez = centerz - lz * cos(-vinc) + lx * sin(-vinc);
+
+        float TILT_ANGLE = -0.03f; // Positive for clockwise, negative for counter-clockwise
+
+        // Calculate the view direction vector (from eye to center)
+        float viewDirx = centerx - eyex;
+        float viewDiry = centery - eyey;
+        float viewDirz = centerz - eyez;
+
+        // Normalize the view direction (rotation axis)
+        float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
+        viewDirx /= viewLength;
+        viewDiry /= viewLength;
+        viewDirz /= viewLength;
+
+        // Normalize the up vector
+        float upLength = sqrt(upx * upx + upy * upy + upz * upz);
+        upx /= upLength;
+        upy /= upLength;
+        upz /= upLength;
+
+        // Calculate the right vector (cross product of view direction and up vector)
+        float rightx = viewDiry * upz - viewDirz * upy;
+        float righty = viewDirz * upx - viewDirx * upz;
+        float rightz = viewDirx * upy - viewDiry * upx;
+
+        // Create rotation matrix using Rodrigues' rotation formula
+        float cosAngle = cos(TILT_ANGLE);
+        float sinAngle = sin(TILT_ANGLE);
+
+        // Rotate the up vector around the view direction axis
+        float newUpx = upx * cosAngle + rightx * sinAngle;
+        float newUpy = upy * cosAngle + righty * sinAngle;
+        float newUpz = upz * cosAngle + rightz * sinAngle;
+
+        // Update the up vector
+        upx = newUpx;
+        upy = newUpy;
+        upz = newUpz;
+
+        // Optional: Re-normalize the up vector
+        upLength = sqrt(upx * upx + upy * upy + upz * upz);
+        upx /= upLength;
+        upy /= upLength;
+        upz /= upLength;
         break;
     }
 
@@ -269,7 +481,7 @@ void specialKeyListener(int key, int x, int y)
         double righty = upz * cx - upx * cz;
         double rightz = upx * cy - upy * cx;
 
-        // Normalize the right vector   
+        // Normalize the right vector
         double length = sqrt(rightx * rightx + righty * righty + rightz * rightz);
         rightx /= length;
         righty /= length;
