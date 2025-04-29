@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include<bits/stdc++.h>
+using namespace std;
 
 // OpenGL / GLUT Headers
 #ifdef __APPLE__
@@ -23,6 +25,8 @@
 #endif
 
 // --- Global Variables ---
+
+int animationSpeed = 10;
 // Camera position and orientation
 GLfloat eyex = 4, eyey = 4, eyez = 4;          // Camera position coordinates
 GLfloat centerx = 0, centery = 0, centerz = 0; // Look-at point coordinates
@@ -44,6 +48,18 @@ void drawCube();
 void drawPyramid();
 void drawCubeWithCheckeredFloor();
 
+struct Sphere
+{
+    float positionx, positiony, positionz;
+    float velocityx, velocityy, velocityz;
+    float accelerationx, accelerationy, accelerationz;
+    float radius;
+    float mass;
+};
+
+// Initialize the sphere
+Sphere sphere;
+
 /**
  * Initialize OpenGL settings
  * Sets up background color and enables depth testing
@@ -52,6 +68,16 @@ void initGL()
 {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
     glEnable(GL_DEPTH_TEST);              // Enable depth testing for z-culling
+}
+
+// Render sphere
+void renderSphere()
+{
+    glPushMatrix();
+    glTranslatef(sphere.positionx, sphere.positiony, sphere.positionz);
+    glScalef(sphere.radius, sphere.radius, sphere.radius);
+    gluSphere(gluNewQuadric(), 1, 32, 32);
+    glPopMatrix();
 }
 
 /**
@@ -74,6 +100,7 @@ void display()
 
     // Draw objects based on visibility flags
     drawCubeWithCheckeredFloor();
+    renderSphere();
     if (isAxes)
         drawAxes();
     if (isCube)
@@ -580,6 +607,47 @@ void specialKeyListener(int key, int x, int y)
     glutPostRedisplay(); // Request a screen refresh
 }
 
+// Simulate physics
+void updatePhysics(float deltaTime)
+{
+    // Update sphere position and velocity
+    sphere.positionx += sphere.velocityx * deltaTime;
+    sphere.positiony += sphere.velocityy * deltaTime;
+    sphere.positionz += sphere.velocityz * deltaTime;
+    sphere.velocityx += sphere.accelerationx * deltaTime;
+    sphere.velocityy += sphere.accelerationy * deltaTime;
+    sphere.velocityz += sphere.accelerationz * deltaTime;
+
+    // Check for collisions with floor
+    if (sphere.positiony - sphere.radius < 0)
+    {
+        // Collision detected, apply response
+        sphere.velocityy = -sphere.velocityy * 0.7; // bounce with damping
+        sphere.positiony = 0 + sphere.radius;        // move sphere to floor
+    }
+
+    // Add rolling and spinning behavior
+    if (sphere.velocityx != 0 || sphere.velocityz != 0)
+    {
+        // Calculate rolling velocity
+        float rollingVelocity = sqrt(sphere.velocityx * sphere.velocityx + sphere.velocityz * sphere.velocityz);
+
+        // Apply rolling friction
+        sphere.velocityx *= 0.9;
+        sphere.velocityz *= 0.9;
+
+        // Update sphere position based on rolling velocity
+        sphere.positionx += sphere.velocityx * deltaTime;
+        sphere.positionz += sphere.velocityz * deltaTime;
+    }
+
+    // Check if sphere has come to rest
+    // if (sphere.velocity.length() < 0.01)
+    // {
+    //     sphere.velocity = Vec3(0, 0, 0); // set velocity to zero
+    // }
+}
+
 /**
  * Draw coordinate axes
  * X axis: red, Y axis: green, Z axis: blue
@@ -780,6 +848,28 @@ void drawPyramid()
 }
 
 /**
+ * Timer function for animation.
+ * This demonstrates the use of a timer instead of idle function.
+ * Timer functions provide better control over animation speed.
+ *
+ * @param value Value passed to the timer function (not used here)
+ */
+void timerFunction(int value)
+{
+    // Update animation values
+    cout << "Timer function called" << endl;
+    time_t currentTime = time(NULL);
+    struct tm *timeInfo = localtime(&currentTime);
+    updatePhysics((float)(animationSpeed)/ 1000.0f);
+
+    // Request a redisplay
+    glutPostRedisplay();
+
+    // Register the timer again
+    glutTimerFunc(animationSpeed, timerFunction, 0);
+}
+
+/**
  * Main function: Program entry point
  */
 int main(int argc, char **argv)
@@ -798,9 +888,21 @@ int main(int argc, char **argv)
     glutReshapeFunc(reshapeListener);
     glutKeyboardFunc(keyboardListener);
     glutSpecialFunc(specialKeyListener);
+    glutTimerFunc(animationSpeed, timerFunction, 0);
 
     // Initialize OpenGL settings
     initGL();
+    sphere.positionx = 0.5f;
+    sphere.positiony = 0;
+    sphere.positionz = 0.5f;
+    sphere.velocityx = 10.0f;
+    sphere.velocityy = 10.0f;
+    sphere.velocityz = 10.0f;
+    sphere.accelerationx = 0;
+    sphere.accelerationy = -9.8;
+    sphere.accelerationz = 0;
+    sphere.radius = 0.5;
+    sphere.mass = 1.0;
 
     // Enter the GLUT event loop
     glutMainLoop();
