@@ -17,16 +17,18 @@
 
 #include <cstdio>
 #include <cmath>
+#include <chrono>
 #include <time.h>
 #include <bits/stdc++.h>
 using namespace std;
 
-int animationSpeed = 1000;
+int animationSpeed = 10;
 float hourReading = 0.2f;
 float minuteReading = 0.05f;
 int hour = -1;
 int minute = -1;
 int second = -1;
+int millisecond = -1;
 float hourHandLength = 0.5f;
 float minuteHandLength = 0.7f;
 float secondHandLength = 0.8f;
@@ -172,7 +174,7 @@ void drawSecondHand()
     glBegin(GL_LINES);
     glColor3f(0.0f, 1.0f, 1.0f); // Orange
     glVertex2f(0.0f, 0.0f);      // Center of the clock
-    float hourAngle = -second * 6.0f + 90.0f; // calculating the angle in degrees taking the (-) as the default angle calculation would be anti clockwise
+    float hourAngle = -(second + (millisecond / 1000.0f)) * 6.0f + 90.0f; // calculating the angle in degrees taking the (-) as the default angle calculation would be anti clockwise
     float x = secondHandLength * cos(hourAngle * 3.14159f / 180.0f); // now changing the angle to radians from degrees
     float y = secondHandLength * sin(hourAngle * 3.14159f / 180.0f); // now changing the angle to radians from degrees
 
@@ -263,13 +265,18 @@ void timerFunction(int value)
 {
     // Update animation values
     cout << "Timer function called" << endl;
-    time_t currentTime = time(NULL);
-    struct tm *timeInfo = localtime(&currentTime);
-    hour = timeInfo->tm_hour;
-    minute = timeInfo->tm_min;
-    second = timeInfo->tm_sec;
-    hour %= 12;
-    cout << hour << ":" << minute << ":" << second << endl;
+    
+
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    hour = st.wHour;
+    minute = st.wMinute;
+    second = st.wSecond;
+    millisecond = st.wMilliseconds;
+
+    std::cout << "Current time: "
+              << st.wHour << ":" << st.wMinute << ":" << st.wSecond
+              << "." << st.wMilliseconds << std::endl;
 
     // Request a redisplay
     glutPostRedisplay();
@@ -305,6 +312,7 @@ int main(int argc, char **argv)
 
     // Use timer function instead of idle function for better control of animation speed
     glutTimerFunc(animationSpeed, timerFunction, 0);
+
 
     // Perform initial setup
     init();
