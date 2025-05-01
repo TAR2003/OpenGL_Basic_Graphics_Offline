@@ -13,7 +13,7 @@
 // Standard Headers
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include <cmath>
 #include <bits/stdc++.h>
 using namespace std;
 
@@ -70,13 +70,52 @@ void initGL()
     glEnable(GL_DEPTH_TEST);              // Enable depth testing for z-culling
 }
 
-// Render sphere
+#include <math.h>
+
 void renderSphere()
 {
     glPushMatrix();
     glTranslatef(sphere.positionx, sphere.positiony, sphere.positionz);
     glScalef(sphere.radius, sphere.radius, sphere.radius);
-    gluSphere(gluNewQuadric(), 1, 32, 32);
+
+    const int slices = 32;
+    const int stacks = 32;
+    const float radius = 1.0f;
+
+    glShadeModel(GL_SMOOTH); // Enable smooth shading (color interpolation)
+float pi = 3.14159;
+    for (int i = 0; i < stacks; ++i)
+    {
+        float stack0 = (float)i / stacks * pi - pi / 2; // Latitude range: [-π/2, π/2]
+        float stack1 = (float)(i + 1) / stacks * pi - pi / 2;
+
+        glBegin(GL_QUAD_STRIP);
+        for (int j = 0; j <= slices; ++j)
+        {
+            float slice = (float)j / slices * 2 * pi; // Longitude range: [0, 2π]
+
+            // Vertex positions
+            float x0 = cos(stack0) * cos(slice);
+            float y0 = sin(stack0);
+            float z0 = cos(stack0) * sin(slice);
+
+            float x1 = cos(stack1) * cos(slice);
+            float y1 = sin(stack1);
+            float z1 = cos(stack1) * sin(slice);
+
+            // Color based on height (y-coordinate)
+            float h = (y0 + 1.0f) * 0.5f; // Normalize y to [0, 1]
+            glColor3f(
+                h,             // Red increases with height
+                1.0f - h,      // Green decreases with height
+                fabs(0.5f - h) // Blue peaks in the middle
+            );
+
+            glVertex3f(x0 * radius, y0 * radius, z0 * radius);
+            glVertex3f(x1 * radius, y1 * radius, z1 * radius);
+        }
+        glEnd();
+    }
     glPopMatrix();
 }
 
