@@ -30,13 +30,14 @@ float gravity = -9.8f;
 /// @brief the coefficient of friction when it rolls on the ground
 float friction = 0.98f; 
 /// @brief  the percentage of force that helps the ball to bounce back from the floor after a collision
-float restitution = 0.5f;
+float restitution = 0.8f;
 /// @brief defines the size of the cube with checkered floor
 float cubeSize = 20.0f;
 /// @brief the value of pi used in calculations
 float pi = 3.14159f;
 /// @brief increase of ball velocity per plus key press
 float increasePerPlus = 10.0f;
+GLUquadricObj *quadric;
 
 float originalSphereRadius = 0.5f;
 float originalSphereMass = 1.0f;
@@ -48,7 +49,7 @@ float originalSphereColor[] = {0.8f, 0.2f, 0.2f};
 
 // --- Global Variables ---
 
-int animationSpeed = 100;
+int animationSpeed = 10;
 // Camera position and orientation
 GLfloat eyex = 4, eyey = 4, eyez = 4;          // Camera position coordinates
 GLfloat centerx = 0, centery = 0, centerz = 0; // Look-at point coordinates
@@ -119,6 +120,25 @@ void initSphere()
     sphere.color[0] = originalSphereColor[0];
     sphere.color[1] = originalSphereColor[1];
     sphere.color[2] =originalSphereColor[2];
+
+    quadric = gluNewQuadric();
+    gluQuadricNormals(quadric, GLU_SMOOTH);
+}
+
+void stripeColor(GLfloat* color, float angle) {
+    int stripe = (int)(angle / (2 * pi / 6)) % 2;
+    if (stripe == 0)
+    {
+        color[0] = 0.8f; // Red
+        color[1] = 0.2f;
+        color[2] = 0.2f;
+    }
+    else
+    {
+        color[0] = 0.2f; // Green
+        color[1] = 0.8f;
+        color[2] = 0.2f;
+    }
 }
 
 void drawSphere() {
@@ -127,26 +147,66 @@ void drawSphere() {
     glRotatef(sphere.rotationAngle[0], 1.0f, 0.0f, 0.0f);
     glRotatef(sphere.rotationAngle[1], 0.0f, 1.0f, 0.0f);
     glRotatef(sphere.rotationAngle[2], 0.0f, 0.0f, 1.0f);
-    glColor3f(sphere.color[0], sphere.color[1], sphere.color[2]);
-    glutSolidSphere(sphere.radius, 20, 20);
-    glPopMatrix();
 
+
+    // glColor3f(sphere.color[0], sphere.color[1], sphere.color[2]);
+
+    glEnable(GL_COLOR_MATERIAL);
+    gluQuadricCallback(quadric, GLU_ERROR, NULL);
+    gluQuadricDrawStyle(quadric, GLU_FILL);
+    gluQuadricNormals(quadric, GLU_SMOOTH);
+    gluQuadricTexture(quadric, GL_TRUE);
+
+    // Set up the color callback
+    GLfloat color[3];
+    glBegin(GL_TRIANGLE_STRIP);
+    for (float phi = 0; phi < pi; phi += pi / 20)
+    {
+        for (float theta = 0; theta <= 2 * pi; theta += pi / 20)
+        {
+            stripeColor(color, theta);
+            glColor3fv(color);
+            glVertex3f(
+                sphere.radius * sin(phi) * cos(theta),
+                sphere.radius * cos(phi),
+                sphere.radius * sin(phi) * sin(theta));
+
+            stripeColor(color, theta);
+            glColor3fv(color);
+            glVertex3f(
+                sphere.radius * sin(phi + pi / 20) * cos(theta),
+                sphere.radius * cos(phi + pi / 20),
+                sphere.radius * sin(phi + pi / 20) * sin(theta));
+        }
+    }
+    glEnd();
+
+    glDisable(GL_COLOR_MATERIAL);
+    glPopMatrix();
 }
 
-void checkCollisions() {
+void checkCollisions()
+{
+    const float rollMatchFactor = 0.5f;  // How quickly to align angular velocity to ideal rolling
+    const float maxAngularSpeed = 50.0f; // Optional angular velocity clamp
+
     // Floor collision (Y-axis)
     if (sphere.position[1] - sphere.radius <= 0.0f)
     {
         sphere.position[1] = sphere.radius; // Prevent sinking
         sphere.velocity[1] = -sphere.velocity[1] * restitution;
 
-        // Apply restitution to horizontal velocities
+        // Apply friction to horizontal velocities
         sphere.velocity[0] *= friction;
         sphere.velocity[2] *= friction;
 
-        // Calculate angular velocity based on surface velocity
-        sphere.angularVelocity[0] = -sphere.velocity[2] / sphere.radius;
-        sphere.angularVelocity[2] = sphere.velocity[0] / sphere.radius;
+        // Calculate ideal angular velocity for rolling
+        float idealAngularX = sphere.velocity[2] / sphere.radius;
+        float idealAngularZ = -sphere.velocity[0] / sphere.radius;
+
+        // Smoothly transition to rolling angular velocity
+        sphere.angularVelocity[0] += (idealAngularX - sphere.angularVelocity[0]) * rollMatchFactor;
+        sphere.angularVelocity[2] += (idealAngularZ - sphere.angularVelocity[2]) * rollMatchFactor;
     }
 
     // Wall collisions (X-axis)
@@ -154,11 +214,18 @@ void checkCollisions() {
     {
         sphere.position[0] = sphere.radius;
         sphere.velocity[0] = -sphere.velocity[0] * restitution;
+
+        // Smoothly adjust Y-axis rotation
+        float idealAngularY = -sphere.velocity[2] / sphere.radius;
+        sphere.angularVelocity[1] += (idealAngularY - sphere.angularVelocity[1]) * rollMatchFactor;
     }
     if (sphere.position[0] + sphere.radius >= cubeSize)
     {
         sphere.position[0] = cubeSize - sphere.radius;
         sphere.velocity[0] = -sphere.velocity[0] * restitution;
+
+        float idealAngularY = -sphere.velocity[2] / sphere.radius;
+        sphere.angularVelocity[1] += (idealAngularY - sphere.angularVelocity[1]) * rollMatchFactor;
     }
 
     // Wall collisions (Z-axis)
@@ -166,20 +233,36 @@ void checkCollisions() {
     {
         sphere.position[2] = sphere.radius;
         sphere.velocity[2] = -sphere.velocity[2] * restitution;
+
+        float idealAngularY = sphere.velocity[0] / sphere.radius;
+        sphere.angularVelocity[1] += (idealAngularY - sphere.angularVelocity[1]) * rollMatchFactor;
     }
     if (sphere.position[2] + sphere.radius >= cubeSize)
     {
         sphere.position[2] = cubeSize - sphere.radius;
         sphere.velocity[2] = -sphere.velocity[2] * restitution;
+
+        float idealAngularY = sphere.velocity[0] / sphere.radius;
+        sphere.angularVelocity[1] += (idealAngularY - sphere.angularVelocity[1]) * rollMatchFactor;
     }
 
-    // Ceiling collision
+    // Ceiling collision (Y-axis top)
     if (sphere.position[1] + sphere.radius >= cubeSize)
     {
         sphere.position[1] = cubeSize - sphere.radius;
         sphere.velocity[1] = -sphere.velocity[1] * restitution;
     }
+
+    // Optional: Clamp angular velocity
+    for (int i = 0; i < 3; ++i)
+    {
+        if (sphere.angularVelocity[i] > maxAngularSpeed)
+            sphere.angularVelocity[i] = maxAngularSpeed;
+        else if (sphere.angularVelocity[i] < -maxAngularSpeed)
+            sphere.angularVelocity[i] = -maxAngularSpeed;
+    }
 }
+
 /// @brief updatePhysics of the ball
 /// @param deltaTime it is the millisecond time after when the function is called
 void updatePhysics(int deltaTime)
@@ -903,6 +986,11 @@ int main(int argc, char **argv)
     glutInitWindowPosition(50, 50);
     glutCreateWindow("OpenGL 3D Drawing");
 
+    glEnable(GL_DEPTH_TEST);
+    // glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+    glShadeModel(GL_SMOOTH);
+    // glEnable(GL_LIGHTING);
+    // glEnable(GL_LIGHT0);
     // Register callback functions
     glutDisplayFunc(display);
     glutReshapeFunc(reshapeListener);
