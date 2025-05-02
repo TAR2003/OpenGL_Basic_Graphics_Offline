@@ -414,22 +414,27 @@ void keyboardListener(unsigned char key, int x, int y)
 
     switch (key)
     {
-    // --- Camera Position Controls (eye coordinates) ---
     case '1':
     {
+        // we are getting the vector which originates from the camera position to the reference point
         double caX = centerx - eyex;
         double caY = centery - eyey;
         double caZ = centerz - eyez;
 
+        // we are calculating the cross product of the new vector and the head vector
         double crossX = upy * caZ - upz * caY;
         double crossY = upz * caX - upx * caZ;
         double crossZ = upx * caY - upy * caX;
+        // as a result the new cross vector will be the perpendicular of the head and the camera to refernce point vector
+        // so it might be on the left or on the right side of the current camera position
 
+        // getting the magnitude value of the cross product vector
         double crossMag = sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
+        // Now, we are making the the new t vector as the unit vector for the direction of cross vector
         double tX = crossX / crossMag;
         double tY = crossY / crossMag;
         double tZ = crossZ / crossMag;
-
+        // Now, we are incrementing the camera position in the direction of the t vector
         double daX = tX * rotationSpeed;
         double daY = tY * rotationSpeed;
         double daZ = tZ * rotationSpeed;
@@ -441,24 +446,27 @@ void keyboardListener(unsigned char key, int x, int y)
     }
     case '2':
     {
-
+        // we are getting the vector which originates from the camera position to the reference point
         double caX = centerx - eyex;
         double caY = centery - eyey;
         double caZ = centerz - eyez;
 
+        // we are calculating the cross product of the new vector and the head vector
         double crossX = upy * caZ - upz * caY;
         double crossY = upz * caX - upx * caZ;
         double crossZ = upx * caY - upy * caX;
 
+        // getting the magnitude value of the cross product vector
         double crossMag = sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
         double tX = crossX / crossMag;
         double tY = crossY / crossMag;
         double tZ = crossZ / crossMag;
 
+        // Now, we are calculating the value to change 
         double daX = tX * rotationSpeed;
         double daY = tY * rotationSpeed;
         double daZ = tZ * rotationSpeed;
-
+        // Now, we are decrementing the camera position in the direction of the t vector
         centerx = centerx - daX;
         centery = centery - daY;
         centerz = centerz - daZ;
@@ -467,53 +475,46 @@ void keyboardListener(unsigned char key, int x, int y)
     case '3': // Rotate camera upwards
     {
         float ROTATION_ANGLE = rotationSpeed;
+        //  the new vector vireDir is the vector from the camera to the reference point
         float viewDirx = centerx - eyex;
         float viewDiry = centery - eyey;
         float viewDirz = centerz - eyez;
 
         // Normalize the view direction
+        // getting the magnitude of the viewDir vector
         float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
+        // now we are normalizing the viewDir vector as a unit vector
         viewDirx /= viewLength;
         viewDiry /= viewLength;
         viewDirz /= viewLength;
 
-        // Normalize the up vector
+        // Normalize the up vector to get  the direction unit vector
         float upLength = sqrt(upx * upx + upy * upy + upz * upz);
         upx /= upLength;
         upy /= upLength;
         upz /= upLength;
 
-        // Calculate the right vector (cross product of view direction and up vector)
-        float rightx = viewDiry * upz - viewDirz * upy;
-        float righty = viewDirz * upx - viewDirx * upz;
-        float rightz = viewDirx * upy - viewDiry * upx;
 
-        // Normalize the right vector
-        float rightLength = sqrt(rightx * rightx + righty * righty + rightz * rightz);
-        rightx /= rightLength;
-        righty /= rightLength;
-        rightz /= rightLength;
-
-        // Create rotation matrix around the right vector (pitch up)
+        // we will create a rotation matrix around the up vector
         float cosAngle = cos(ROTATION_ANGLE);
         float sinAngle = sin(ROTATION_ANGLE);
 
-        // Rotate the view direction
+        // Rotate the view direction, this is the new view direction from the camera to the reference point, here there is ROTATION ANGLE difference from now viewDir vector, and 90 - ROTATION ANGLE reference from the up vector, so we just add cos angle with viewDir anmd sin angle with up vector
         float newViewDirx = viewDirx * cosAngle + upx * sinAngle;
         float newViewDiry = viewDiry * cosAngle + upy * sinAngle;
         float newViewDirz = viewDirz * cosAngle + upz * sinAngle;
 
-        // Rotate the up vector
+        // Rotate the up vector, this is the new up vector here there is ROTATION ANGLE difference from now up vector, and 90 + ROTATION ANGLE difference from the viewDir vector, so we just subtract cos angle with up vector and sin angle with viewDir vector
         float newUpx = upx * cosAngle - viewDirx * sinAngle;
         float newUpy = upy * cosAngle - viewDiry * sinAngle;
         float newUpz = upz * cosAngle - viewDirz * sinAngle;
 
-        // Update the center position
+        // Update the center position by adding the new view direction with the camera position to get the new center
         centerx = eyex + newViewDirx * viewLength;
         centery = eyey + newViewDiry * viewLength;
         centerz = eyez + newViewDirz * viewLength;
-
-        // Update the up vector
+ 
+        // Update the up vector 
         upx = newUpx;
         upy = newUpy;
         upz = newUpz;
@@ -521,54 +522,46 @@ void keyboardListener(unsigned char key, int x, int y)
     }
     case '4': // Rotate camera downwards
     {
+        // the new vector vireDir is the vector from the camera to the reference point
         float ROTATION_ANGLE = -rotationSpeed;
         float viewDirx = centerx - eyex;
         float viewDiry = centery - eyey;
         float viewDirz = centerz - eyez;
 
-        // Normalize the view direction
+        // Normalize the view direction vector as a unit vector
         float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
         viewDirx /= viewLength;
         viewDiry /= viewLength;
         viewDirz /= viewLength;
 
-        // Normalize the up vector
+        // Normalize the up vector as a unit vector 
         float upLength = sqrt(upx * upx + upy * upy + upz * upz);
         upx /= upLength;
         upy /= upLength;
         upz /= upLength;
 
-        // Calculate the right vector (cross product of view direction and up vector)
-        float rightx = viewDiry * upz - viewDirz * upy;
-        float righty = viewDirz * upx - viewDirx * upz;
-        float rightz = viewDirx * upy - viewDiry * upx;
 
-        // Normalize the right vector
-        float rightLength = sqrt(rightx * rightx + righty * righty + rightz * rightz);
-        rightx /= rightLength;
-        righty /= rightLength;
-        rightz /= rightLength;
-
-        // Create rotation matrix around the right vector (pitch down)
+        // Create rotation matrix around the right vector 
         float cosAngle = cos(ROTATION_ANGLE);
         float sinAngle = sin(ROTATION_ANGLE);
-
-        // Rotate the view direction
+        // here the rotation angle is the angle between the right vector and the view direction vector, so we just add cos angle with viewDir anmd sin angle with right vector
+        // so as it is minus, it will rotate at the different direction
+        // Rotate the view direction vector this is the new view direction from the camera to the reference point here there is ROTATION ANGLE difference from now viewDir vector, and 90 - ROTATION ANGLE reference from the up vector, so we just add cos angle with viewDir anmd sin angle with up vector
         float newViewDirx = viewDirx * cosAngle + upx * sinAngle;
         float newViewDiry = viewDiry * cosAngle + upy * sinAngle;
         float newViewDirz = viewDirz * cosAngle + upz * sinAngle;
 
-        // Rotate the up vector
+        // Rotate the up vector this is the new up vector, here there is ROTATION ANGLE difference from now up vector, and 90 + ROTATION ANGLE difference from the viewDir vector, so we just subtract cos angle with up vector and sin angle with viewDir vector
         float newUpx = upx * cosAngle - viewDirx * sinAngle;
         float newUpy = upy * cosAngle - viewDiry * sinAngle;
         float newUpz = upz * cosAngle - viewDirz * sinAngle;
 
-        // Update the center position
+        // Update the center position by adding the new view direction with the camera position to get the new center
         centerx = eyex + newViewDirx * viewLength;
         centery = eyey + newViewDiry * viewLength;
         centerz = eyez + newViewDirz * viewLength;
 
-        // Update the up vector
+        // Update the up vector 
         upx = newUpx;
         upy = newUpy;
         upz = newUpz;
@@ -579,24 +572,25 @@ void keyboardListener(unsigned char key, int x, int y)
 
         float TILT_ANGLE = rotationSpeed; // Positive for clockwise, negative for counter-clockwise
 
-        // Calculate the view direction vector (from eye to center)
+        // Calculate the view direction vector from the camera to the reference point
         float viewDirx = centerx - eyex;
         float viewDiry = centery - eyey;
         float viewDirz = centerz - eyez;
 
-        // Normalize the view direction (rotation axis)
+        // Normalize the view direction vector as a unit vector
         float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
         viewDirx /= viewLength;
         viewDiry /= viewLength;
         viewDirz /= viewLength;
 
-        // Normalize the up vector
+        // Normalize the up vector as a unit vector
         float upLength = sqrt(upx * upx + upy * upy + upz * upz);
         upx /= upLength;
         upy /= upLength;
         upz /= upLength;
 
-        // Calculate the right vector (cross product of view direction and up vector)
+        // Calculate the right vector 
+        // cross product of view direction and up vector
         float rightx = viewDiry * upz - viewDirz * upy;
         float righty = viewDirz * upx - viewDirx * upz;
         float rightz = viewDirx * upy - viewDiry * upx;
@@ -605,7 +599,7 @@ void keyboardListener(unsigned char key, int x, int y)
         float cosAngle = cos(TILT_ANGLE);
         float sinAngle = sin(TILT_ANGLE);
 
-        // Rotate the up vector around the view direction axis
+        // Rotate the up vector around the view direction axis, as the TILT_ANGLE differencec from the current up vector, and 90 - TILT_ANGLE difference from the right vector, so we just add cos angle with up vector and sin angle with right vector
         float newUpx = upx * cosAngle + rightx * sinAngle;
         float newUpy = upy * cosAngle + righty * sinAngle;
         float newUpz = upz * cosAngle + rightz * sinAngle;
@@ -615,7 +609,7 @@ void keyboardListener(unsigned char key, int x, int y)
         upy = newUpy;
         upz = newUpz;
 
-        // Optional: Re-normalize the up vector
+        // We make the up vector again the unit vector for the next rotation
         upLength = sqrt(upx * upx + upy * upy + upz * upz);
         upx /= upLength;
         upy /= upLength;
@@ -627,24 +621,25 @@ void keyboardListener(unsigned char key, int x, int y)
 
         float TILT_ANGLE = -rotationSpeed; // Positive for clockwise, negative for counter-clockwise
 
-        // Calculate the view direction vector (from eye to center)
+        // Calculate the view direction vector from the camera to the reference point
         float viewDirx = centerx - eyex;
         float viewDiry = centery - eyey;
         float viewDirz = centerz - eyez;
 
-        // Normalize the view direction (rotation axis)
+        // Normalize the view direction vector as a unit vector
         float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
         viewDirx /= viewLength;
         viewDiry /= viewLength;
         viewDirz /= viewLength;
 
-        // Normalize the up vector
+        // Normalize the up vector as a unit vector
         float upLength = sqrt(upx * upx + upy * upy + upz * upz);
         upx /= upLength;
         upy /= upLength;
         upz /= upLength;
 
-        // Calculate the right vector (cross product of view direction and up vector)
+        // Calculate the right vector 
+        // cross product of view direction and up vector
         float rightx = viewDiry * upz - viewDirz * upy;
         float righty = viewDirz * upx - viewDirx * upz;
         float rightz = viewDirx * upy - viewDiry * upx;
@@ -653,7 +648,7 @@ void keyboardListener(unsigned char key, int x, int y)
         float cosAngle = cos(TILT_ANGLE);
         float sinAngle = sin(TILT_ANGLE);
 
-        // Rotate the up vector around the view direction axis
+        // Rotate the up vector around the view direction axis , as the TILT_ANGLE differencec from the current up vector, and 90 - TILT_ANGLE difference from the right vector, so we just add cos angle with up vector and sin angle with right vector
         float newUpx = upx * cosAngle + rightx * sinAngle;
         float newUpy = upy * cosAngle + righty * sinAngle;
         float newUpz = upz * cosAngle + rightz * sinAngle;
@@ -663,7 +658,7 @@ void keyboardListener(unsigned char key, int x, int y)
         upy = newUpy;
         upz = newUpz;
 
-        // Optional: Re-normalize the up vector
+        // We make the up vector again the unit vector for the next rotation
         upLength = sqrt(upx * upx + upy * upy + upz * upz);
         upx /= upLength;
         upy /= upLength;
@@ -671,11 +666,11 @@ void keyboardListener(unsigned char key, int x, int y)
         break;
     }
 
-        // --- Look-at Point Controls (center coordinates) ---
+   
 
     case 'w':
     {
-        // Move camera up
+        // Move camera up without changing the reference point
         eyey += movementSpeed;
         break;
     }
@@ -766,18 +761,21 @@ void specialKeyListener(int key, int x, int y)
         double leftx = upy * cz - upz * cy;
         double lefty = upz * cx - upx * cz;
         double leftz = upx * cy - upy * cx;
+        // Now the cross product of the head vector and the camera-reference point vector is the left vector
+        // as cross vector is at the perpendicular of two vectors
 
-        // Normalize the left vector
-        double length = sqrt(leftx * leftx + lefty * lefty + leftz * leftz);
+        // Normalize the left vector as we only need the unit vector (direction)
+        double length = sqrt(leftx * leftx + lefty * lefty + leftz * leftz); // calculating the length
         leftx /= length;
         lefty /= length;
         leftz /= length;
 
-        // Move the camera and reference point in the left direction
+        // Move the camera position in the left direction by the movement speed
         eyex += leftx * movementSpeed;
         eyey += lefty * movementSpeed;
         eyez += leftz * movementSpeed;
 
+        // Move the look-at point in the left direction by the movement speed
         centerx += leftx * movementSpeed;
         centery += lefty * movementSpeed;
         centerz += leftz * movementSpeed;
@@ -796,18 +794,20 @@ void specialKeyListener(int key, int x, int y)
         double rightx = upy * cz - upz * cy;
         double righty = upz * cx - upx * cz;
         double rightz = upx * cy - upy * cx;
-
-        // Normalize the right vector
-        double length = sqrt(rightx * rightx + righty * righty + rightz * rightz);
+        // Now the cross product of the head vector and the camera-reference point vector is the right vector
+        // as cross vector is at the perpendicular of two vectors
+        // Normalize the right vector as we only need the unit vector (direction)
+        double length = sqrt(rightx * rightx + righty * righty + rightz * rightz); // calculating the length
         rightx /= length;
         righty /= length;
         rightz /= length;
 
-        // Move the camera and reference point in the right direction
+        // Move the camera position in the right direction by the movement speed
         eyex -= rightx * movementSpeed;
         eyey -= righty * movementSpeed;
         eyez -= rightz * movementSpeed;
 
+        // Move the look-at point in the right direction by the movement speed
         centerx -= rightx * movementSpeed;
         centery -= righty * movementSpeed;
         centerz -= rightz * movementSpeed;
@@ -822,17 +822,18 @@ void specialKeyListener(int key, int x, int y)
         double cy = centery - eyey;
         double cz = centerz - eyez;
 
-        // Normalize the vector
+        // Normalize the vector as we only need the unit vector (direction)
         double length = sqrt(cx * cx + cy * cy + cz * cz);
         cx /= length;
         cy /= length;
         cz /= length;
 
-        // Move the camera and reference point along the vector by a single unit
+        // Move the camera position towards the c vector by a single movementSpeed unit
         eyex += cx * movementSpeed;
         eyey += cy * movementSpeed;
         eyez += cz * movementSpeed;
 
+        // Move the look-at point towards the c vector by a single movementSpeed unit
         centerx += cx * movementSpeed;
         centery += cy * movementSpeed;
         centerz += cz * movementSpeed;
@@ -847,17 +848,18 @@ void specialKeyListener(int key, int x, int y)
         double cy = centery - eyey;
         double cz = centerz - eyez;
 
-        // Normalize the vector
+        // Normalize the vector as we only need the unit vector (direction)
         double length = sqrt(cx * cx + cy * cy + cz * cz);
         cx /= length;
         cy /= length;
         cz /= length;
 
-        // Move the camera and reference point along the opposite direction of the vector by a single unit
+        // Move the camera position away from the c vector by a single movementSpeed unit
         eyex -= cx * movementSpeed;
         eyey -= cy * movementSpeed;
         eyez -= cz * movementSpeed;
 
+        // Move the look-at point away from the c vector by a single movementSpeed unit
         centerx -= cx * movementSpeed;
         centery -= cy * movementSpeed;
         centerz -= cz * movementSpeed;
@@ -866,11 +868,13 @@ void specialKeyListener(int key, int x, int y)
     }
     case GLUT_KEY_PAGE_UP:
     {
-        // Move the camera and reference point along the head vector by a single unit
+        // here we know the up side is the side of the head vector, which in this case is the up vector
+        // Move the camera position along the head vector by a single unit
         eyex += upx * movementSpeed;
         eyey += upy * movementSpeed;
         eyez += upz * movementSpeed;
 
+        // Move the reference point towards the up vector by a single unit of movement speed
         centerx += upx * movementSpeed;
         centery += upy * movementSpeed;
         centerz += upz * movementSpeed;
@@ -880,11 +884,13 @@ void specialKeyListener(int key, int x, int y)
 
     case GLUT_KEY_PAGE_DOWN:
     {
-        // Move the camera and reference point along the opposite direction of the head vector by a single unit
+        // here we know the down side is the other side of the head vector, which in this case is the up vector
+        // Move the camera position along the opposite direction of the head vector by a single unit
         eyex -= upx * movementSpeed;
         eyey -= upy * movementSpeed;
         eyez -= upz * movementSpeed;
 
+        // Move the reference point towards the opposite direction of the up vector by a single unit of movement speed
         centerx -= upx * movementSpeed;
         centery -= upy * movementSpeed;
         centerz -= upz * movementSpeed;
@@ -926,6 +932,10 @@ void drawAxes()
     glEnd();
 }
 
+
+/// @brief draws a checkered floor made of alternating black and white square tiles
+/// @param size what will be the size of the floor
+/// @param tiles how many tiles in each direction
 void drawCheckeredFloor(float size, int tiles)
 {
     // Set up the colors
@@ -942,13 +952,14 @@ void drawCheckeredFloor(float size, int tiles)
         {
             if ((x + z) % 2 == 0)
             {
-                glColor4fv(white);
+                glColor4fv(white); // checking the color of the tile
             }
             else
             {
                 glColor4fv(black);
             }
 
+            // draws a tile of the floor which will be tilesize length long, and xz plane
             glVertex3f(x * tileSize, 0.0f, z * tileSize);
             glVertex3f((x + 1) * tileSize, 0.0f, z * tileSize);
             glVertex3f((x + 1) * tileSize, 0.0f, (z + 1) * tileSize);
@@ -966,8 +977,8 @@ void drawCubeWithCheckeredFloor()
     // Number of tiles in each direction
 
     // Set up the colors
-    GLfloat wallColor[] = {0.5f, 1.0f, 0.5f, 1.0f};
-    GLfloat ceilingColor[] = {0.5f, 0.5f, 0.5f, 1.0f};
+    GLfloat wallColor[] = {0.5f, 1.0f, 0.5f, 1.0f}; // the color of the walls
+    GLfloat ceilingColor[] = {0.5f, 0.5f, 0.5f, 1.0f}; // the color of the ceiling
 
     // Draw the checkered floor starting from origin
     drawCheckeredFloor(cubeSize, tiles);
@@ -975,34 +986,34 @@ void drawCubeWithCheckeredFloor()
     // Draw the walls
     glBegin(GL_QUADS);
     glColor4fv(wallColor);
-    // Front wall
+    // Front wall with the wall color
     glVertex3f(0.0f, 0.0f, 0.0f);
     glVertex3f(cubeSize, 0.0f, 0.0f);
     glVertex3f(cubeSize, cubeSize, 0.0f);
     glVertex3f(0.0f, cubeSize, 0.0f);
 
-    // Back wall
+    // drawing the back wall with the wall color
     glVertex3f(0.0f, 0.0f, cubeSize);
     glVertex3f(cubeSize, 0.0f, cubeSize);
     glVertex3f(cubeSize, cubeSize, cubeSize);
     glVertex3f(0.0f, cubeSize, cubeSize);
 
-    // Left wall
+    // drawing the left wall with the wall color
     glVertex3f(0.0f, 0.0f, 0.0f);
     glVertex3f(0.0f, 0.0f, cubeSize);
     glVertex3f(0.0f, cubeSize, cubeSize);
     glVertex3f(0.0f, cubeSize, 0.0f);
 
-    // Right wall
+    // drawing the right wall with the wall color
     glVertex3f(cubeSize, 0.0f, 0.0f);
     glVertex3f(cubeSize, 0.0f, cubeSize);
     glVertex3f(cubeSize, cubeSize, cubeSize);
     glVertex3f(cubeSize, cubeSize, 0.0f);
     glEnd();
 
-    // Draw the ceiling
+    // Drawing the ceiling with the color of the ceiling
     glBegin(GL_QUADS);
-    glColor4fv(ceilingColor);
+    glColor4fv(ceilingColor); // cahnge the color as the color of the ceiling is different from the wall color
     glVertex3f(0.0f, cubeSize, 0.0f);
     glVertex3f(cubeSize, cubeSize, 0.0f);
     glVertex3f(cubeSize, cubeSize, cubeSize);
@@ -1025,6 +1036,7 @@ void timerFunction(int value)
     struct tm *timeInfo = localtime(&currentTime);
     if (paused == false)
     {
+        // we wont apply physics if the scene is paused
         updatePhysics((float)(animationSpeed));
     }
     // Request a redisplay
@@ -1049,17 +1061,14 @@ int main(int argc, char **argv)
     glutCreateWindow("OpenGL 3D Drawing");
 
     glEnable(GL_DEPTH_TEST);
-    // glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     glShadeModel(GL_SMOOTH);
-    // glEnable(GL_LIGHTING);
-    // glEnable(GL_LIGHT0);
-    // Register callback functions
+    
     glutDisplayFunc(display);
     glutReshapeFunc(reshapeListener);
     glutKeyboardFunc(keyboardListener);
     glutSpecialFunc(specialKeyListener);
     glutTimerFunc(animationSpeed, timerFunction, 0);
-    initSphere();
+    initSphere(); // initialize the sphere object
     // Initialize OpenGL settings
     initGL();
 
