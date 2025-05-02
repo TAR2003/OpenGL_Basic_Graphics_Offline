@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <cmath>
 #include <bits/stdc++.h>
+#include <GL/glew.h>
 using namespace std;
 
 // OpenGL / GLUT Headers
@@ -57,6 +58,8 @@ struct Sphere
     float mass;
 };
 
+
+
 // Initialize the sphere
 Sphere sphere;
 
@@ -70,53 +73,40 @@ void initGL()
     glEnable(GL_DEPTH_TEST);              // Enable depth testing for z-culling
 }
 
-#include <math.h>
 
-void renderSphere()
+const int slices = 40;
+const int stacks = 40;
+const float pi = 3.14159;
+void renderSphere(float radius = 1.0f)
 {
-    glPushMatrix();
-    glTranslatef(sphere.positionx, sphere.positiony, sphere.positionz);
-    glScalef(sphere.radius, sphere.radius, sphere.radius);
-
-    const int slices = 32;
-    const int stacks = 32;
-    const float radius = 1.0f;
-
-    glShadeModel(GL_SMOOTH); // Enable smooth shading (color interpolation)
-float pi = 3.14159;
     for (int i = 0; i < stacks; ++i)
     {
-        float stack0 = (float)i / stacks * pi - pi / 2; // Latitude range: [-π/2, π/2]
-        float stack1 = (float)(i + 1) / stacks * pi - pi / 2;
+        float lat0 = pi * (-0.5 + (float)i / stacks);
+        float z0 = sin(lat0);
+        float zr0 = cos(lat0);
 
-        glBegin(GL_QUAD_STRIP);
+        float lat1 = pi * (-0.5 + (float)(i + 1) / stacks);
+        float z1 = sin(lat1);
+        float zr1 = cos(lat1);
+
+        glBegin(GL_TRIANGLE_STRIP);
         for (int j = 0; j <= slices; ++j)
         {
-            float slice = (float)j / slices * 2 * pi; // Longitude range: [0, 2π]
+            float lng = 2 * pi * (float)(j) / slices;
+            float x = cos(lng);
+            float y = sin(lng);
 
-            // Vertex positions
-            float x0 = cos(stack0) * cos(slice);
-            float y0 = sin(stack0);
-            float z0 = cos(stack0) * sin(slice);
+            // Alternate stripe color by longitude index
+            if (j % 2 == 0)
+                glColor3f(1.0f, 0.0f, 0.0f); // Red
+            else
+                glColor3f(0.0f, 1.0f, 0.0f); // Green
 
-            float x1 = cos(stack1) * cos(slice);
-            float y1 = sin(stack1);
-            float z1 = cos(stack1) * sin(slice);
-
-            // Color based on height (y-coordinate)
-            float h = (y0 + 1.0f) * 0.5f; // Normalize y to [0, 1]
-            glColor3f(
-                h,             // Red increases with height
-                1.0f - h,      // Green decreases with height
-                fabs(0.5f - h) // Blue peaks in the middle
-            );
-
-            glVertex3f(x0 * radius, y0 * radius, z0 * radius);
-            glVertex3f(x1 * radius, y1 * radius, z1 * radius);
+            glVertex3f(radius * x * zr0, radius * y * zr0, radius * z0);
+            glVertex3f(radius * x * zr1, radius * y * zr1, radius * z1);
         }
         glEnd();
     }
-    glPopMatrix();
 }
 
 /**

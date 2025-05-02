@@ -13,8 +13,9 @@
 // Standard Headers
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include<bits/stdc++.h>
+#include <cmath>
+#include <bits/stdc++.h>
+#include <GL/glew.h>
 using namespace std;
 
 // OpenGL / GLUT Headers
@@ -24,18 +25,45 @@ using namespace std;
 #include <GL/glut.h> // Use standard GLUT location on Linux/Windows
 #endif
 
+/// @brief the force which is applied to the sphere towards land
+float gravity = -9.8f;
+/// @brief the coefficient of friction when it rolls on the ground
+float friction = 0.98f; 
+/// @brief  the percentage of force that helps the ball to bounce back from the floor after a collision
+float restitution = 0.5f;
+/// @brief defines the size of the cube with checkered floor
+float cubeSize = 20.0f;
+/// @brief the value of pi used in calculations
+float pi = 3.14159f;
+/// @brief increase of ball velocity per plus key press
+float increasePerPlus = 10.0f;
+
+float originalSphereRadius = 0.5f;
+float originalSphereMass = 1.0f;
+float originalSphereVelocity[] = {1.0f, 2.0f, 2.0f};
+float originalSpherePosition[] = {5.0f, 5.0f, 5.0f};
+float originalSphereAngularVelocity[] = {0.0f, 0.0f, 0.0f};
+float originalSphereRotationAngle[] = {0.0f, 0.0f, 0.0f};
+float originalSphereColor[] = {0.8f, 0.2f, 0.2f};
+
 // --- Global Variables ---
 
-int animationSpeed = 10;
+int animationSpeed = 100;
 // Camera position and orientation
 GLfloat eyex = 4, eyey = 4, eyez = 4;          // Camera position coordinates
 GLfloat centerx = 0, centery = 0, centerz = 0; // Look-at point coordinates
 GLfloat upx = 0, upy = 1, upz = 0;             // Up vector coordinates
 
+float movementSpeed = 0.3f;
+float rotationSpeed = 0.1f;
+
 // Object visibility flags
 bool isAxes = true;     // Toggle for coordinate axes
 bool isCube = false;    // Toggle for cube
 bool isPyramid = false; // Toggle for pyramid
+bool paused = true;
+
+float ballSpeedOriginal = 0.1f;
 
 // --- Function Declarations ---
 void initGL();
@@ -48,18 +76,6 @@ void drawCube();
 void drawPyramid();
 void drawCubeWithCheckeredFloor();
 
-struct Sphere
-{
-    float positionx, positiony, positionz;
-    float velocityx, velocityy, velocityz;
-    float accelerationx, accelerationy, accelerationz;
-    float radius;
-    float mass;
-};
-
-// Initialize the sphere
-Sphere sphere;
-
 /**
  * Initialize OpenGL settings
  * Sets up background color and enables depth testing
@@ -70,16 +86,128 @@ void initGL()
     glEnable(GL_DEPTH_TEST);              // Enable depth testing for z-culling
 }
 
-// Render sphere
-void renderSphere()
+/// @brief struct which represents a sphere
+typedef struct
 {
-    glPushMatrix();
-    glTranslatef(sphere.positionx, sphere.positiony, sphere.positionz);
-    glScalef(sphere.radius, sphere.radius, sphere.radius);
-    gluSphere(gluNewQuadric(), 1, 32, 32);
-    glPopMatrix();
+    float radius;
+    float mass;
+    float position[3];
+    float velocity[3];
+    float angularVelocity[3];
+    float rotationAngle[3];
+    float color[3];
+} Sphere;
+
+Sphere sphere;
+
+void initSphere()
+{
+    sphere.radius = originalSphereRadius;
+    sphere.mass = originalSphereMass;
+    sphere.position[0] = originalSpherePosition[0];
+    sphere.position[1] = originalSpherePosition[1];
+    sphere.position[2] = originalSpherePosition[2];
+    sphere.velocity[0] = originalSphereVelocity[0];
+    sphere.velocity[1] = originalSphereVelocity[1];
+    sphere.velocity[2] = originalSphereVelocity[2];
+    sphere.angularVelocity[0] = originalSphereAngularVelocity[0];
+    sphere.angularVelocity[1] = originalSphereAngularVelocity[1];
+    sphere.angularVelocity[2] = originalSphereAngularVelocity[2];
+    sphere.rotationAngle[0] = originalSphereRotationAngle[0];
+    sphere.rotationAngle[1] = originalSphereRotationAngle[1];
+    sphere.rotationAngle[2] = originalSphereRotationAngle[2];
+    sphere.color[0] = originalSphereColor[0];
+    sphere.color[1] = originalSphereColor[1];
+    sphere.color[2] =originalSphereColor[2];
 }
 
+void drawSphere() {
+    glPushMatrix();
+    glTranslatef(sphere.position[0], sphere.position[1], sphere.position[2]);
+    glRotatef(sphere.rotationAngle[0], 1.0f, 0.0f, 0.0f);
+    glRotatef(sphere.rotationAngle[1], 0.0f, 1.0f, 0.0f);
+    glRotatef(sphere.rotationAngle[2], 0.0f, 0.0f, 1.0f);
+    glColor3f(sphere.color[0], sphere.color[1], sphere.color[2]);
+    glutSolidSphere(sphere.radius, 20, 20);
+    glPopMatrix();
+
+}
+
+void checkCollisions() {
+    // Floor collision (Y-axis)
+    if (sphere.position[1] - sphere.radius <= 0.0f)
+    {
+        sphere.position[1] = sphere.radius; // Prevent sinking
+        sphere.velocity[1] = -sphere.velocity[1] * restitution;
+
+        // Apply restitution to horizontal velocities
+        sphere.velocity[0] *= friction;
+        sphere.velocity[2] *= friction;
+
+        // Calculate angular velocity based on surface velocity
+        sphere.angularVelocity[0] = -sphere.velocity[2] / sphere.radius;
+        sphere.angularVelocity[2] = sphere.velocity[0] / sphere.radius;
+    }
+
+    // Wall collisions (X-axis)
+    if (sphere.position[0] - sphere.radius <= 0.0f)
+    {
+        sphere.position[0] = sphere.radius;
+        sphere.velocity[0] = -sphere.velocity[0] * restitution;
+    }
+    if (sphere.position[0] + sphere.radius >= cubeSize)
+    {
+        sphere.position[0] = cubeSize - sphere.radius;
+        sphere.velocity[0] = -sphere.velocity[0] * restitution;
+    }
+
+    // Wall collisions (Z-axis)
+    if (sphere.position[2] - sphere.radius <= 0.0f)
+    {
+        sphere.position[2] = sphere.radius;
+        sphere.velocity[2] = -sphere.velocity[2] * restitution;
+    }
+    if (sphere.position[2] + sphere.radius >= cubeSize)
+    {
+        sphere.position[2] = cubeSize - sphere.radius;
+        sphere.velocity[2] = -sphere.velocity[2] * restitution;
+    }
+
+    // Ceiling collision
+    if (sphere.position[1] + sphere.radius >= cubeSize)
+    {
+        sphere.position[1] = cubeSize - sphere.radius;
+        sphere.velocity[1] = -sphere.velocity[1] * restitution;
+    }
+}
+/// @brief updatePhysics of the ball
+/// @param deltaTime it is the millisecond time after when the function is called
+void updatePhysics(int deltaTime)
+{
+    float dt = deltaTime / 1000.0f; // Convert to seconds
+
+    // Apply gravity
+    sphere.velocity[1] += gravity * dt;
+
+    // Update position
+    sphere.position[0] += sphere.velocity[0] * dt;
+    sphere.position[1] += sphere.velocity[1] * dt;
+    sphere.position[2] += sphere.velocity[2] * dt;
+
+    // Update rotation
+    sphere.rotationAngle[0] += sphere.angularVelocity[0] * dt * 180.0f / pi;
+    sphere.rotationAngle[1] += sphere.angularVelocity[1] * dt * 180.0f / pi;
+    sphere.rotationAngle[2] += sphere.angularVelocity[2] * dt * 180.0f / pi;
+
+    // Dampen angular velocity
+    sphere.angularVelocity[0] *= friction;
+    sphere.angularVelocity[1] *= friction;
+    sphere.angularVelocity[2] *= friction;
+
+    // Check for collisions
+    cout << "Sphere position: (" << sphere.position[0] << ", " << sphere.position[1] << ", " << sphere.position[2] << ")" << endl;
+    checkCollisions();
+}
 /**
  * Main display function
  * Sets up the camera and renders visible objects
@@ -100,13 +228,9 @@ void display()
 
     // Draw objects based on visibility flags
     drawCubeWithCheckeredFloor();
-    renderSphere();
+    drawSphere();
     if (isAxes)
         drawAxes();
-    if (isCube)
-        drawCube();
-    if (isPyramid)
-        drawPyramid();
 
     // Swap buffers (double buffering)
     glutSwapBuffers();
@@ -142,8 +266,6 @@ void reshapeListener(GLsizei width, GLsizei height)
  */
 void keyboardListener(unsigned char key, int x, int y)
 {
-    float v = 0.1;      // Movement increment
-    double vinc = 0.25; // Movement increment
 
     // Calculate view direction vector
     double lx = centerx - eyex;
@@ -168,9 +290,9 @@ void keyboardListener(unsigned char key, int x, int y)
         double tY = crossY / crossMag;
         double tZ = crossZ / crossMag;
 
-        double daX = tX * vinc;
-        double daY = tY * vinc;
-        double daZ = tZ * vinc;
+        double daX = tX * rotationSpeed;
+        double daY = tY * rotationSpeed;
+        double daZ = tZ * rotationSpeed;
 
         centerx = centerx + daX;
         centery = centery + daY;
@@ -193,9 +315,9 @@ void keyboardListener(unsigned char key, int x, int y)
         double tY = crossY / crossMag;
         double tZ = crossZ / crossMag;
 
-        double daX = tX * vinc;
-        double daY = tY * vinc;
-        double daZ = tZ * vinc;
+        double daX = tX * rotationSpeed;
+        double daY = tY * rotationSpeed;
+        double daZ = tZ * rotationSpeed;
 
         centerx = centerx - daX;
         centery = centery - daY;
@@ -204,7 +326,7 @@ void keyboardListener(unsigned char key, int x, int y)
     }
     case '3': // Rotate camera upwards
     {
-        float ROTATION_ANGLE = 0.03f;
+        float ROTATION_ANGLE = rotationSpeed;
         float viewDirx = centerx - eyex;
         float viewDiry = centery - eyey;
         float viewDirz = centerz - eyez;
@@ -259,7 +381,7 @@ void keyboardListener(unsigned char key, int x, int y)
     }
     case '4': // Rotate camera downwards
     {
-        float ROTATION_ANGLE = -0.03f;
+        float ROTATION_ANGLE = -rotationSpeed;
         float viewDirx = centerx - eyex;
         float viewDiry = centery - eyey;
         float viewDirz = centerz - eyez;
@@ -315,7 +437,7 @@ void keyboardListener(unsigned char key, int x, int y)
     case '5':
     {
 
-        float TILT_ANGLE = 0.03f; // Positive for clockwise, negative for counter-clockwise
+        float TILT_ANGLE = rotationSpeed; // Positive for clockwise, negative for counter-clockwise
 
         // Calculate the view direction vector (from eye to center)
         float viewDirx = centerx - eyex;
@@ -363,7 +485,7 @@ void keyboardListener(unsigned char key, int x, int y)
     case '6':
     {
 
-        float TILT_ANGLE = -0.03f; // Positive for clockwise, negative for counter-clockwise
+        float TILT_ANGLE = -rotationSpeed; // Positive for clockwise, negative for counter-clockwise
 
         // Calculate the view direction vector (from eye to center)
         float viewDirx = centerx - eyex;
@@ -414,22 +536,47 @@ void keyboardListener(unsigned char key, int x, int y)
     case 'w':
     {
         // Move camera up
-        eyey += v;
+        eyey += movementSpeed;
         break;
     }
     case 's':
     {
         // Move camera down
-        eyey -= v;
+        eyey -= movementSpeed;
         break;
     }
 
     case 't':
-        centerz += v;
+        centerz += movementSpeed;
         break; // Move look-at point forward
     case 'y':
-        centerz -= v;
+        centerz -= movementSpeed;
         break; // Move look-at point backward
+    case '*':
+        movementSpeed += 0.1f;
+        rotationSpeed += 0.1f;
+        break;
+    case '/':
+        movementSpeed -= 0.1f;
+        rotationSpeed -= 0.1f;
+        break;
+    case '+':
+        sphere.velocity[0] += increasePerPlus;
+        sphere.velocity[1] += increasePerPlus;
+        sphere.velocity[2] += increasePerPlus;
+        break;
+    case '-':
+        sphere.velocity[0] -= increasePerPlus;
+        sphere.velocity[1] -= increasePerPlus;
+        sphere.velocity[2] -= increasePerPlus;
+        break;
+    case ' ':
+        paused = !paused;
+        break;
+    case 'r':
+        initSphere();
+        paused = true;
+        break;
 
     // --- Object Visibility Toggles ---
     case 'a':
@@ -457,7 +604,6 @@ void keyboardListener(unsigned char key, int x, int y)
  */
 void specialKeyListener(int key, int x, int y)
 {
-    double v = 0.25; // Movement increment
 
     // Calculate view direction vector
     double lx = centerx - eyex;
@@ -466,6 +612,7 @@ void specialKeyListener(int key, int x, int y)
 
     switch (key)
     {
+
     case GLUT_KEY_LEFT:
     {
         // Calculate the vector from the camera to the reference point
@@ -485,13 +632,13 @@ void specialKeyListener(int key, int x, int y)
         leftz /= length;
 
         // Move the camera and reference point in the left direction
-        eyex += leftx * v;
-        eyey += lefty * v;
-        eyez += leftz * v;
+        eyex += leftx * movementSpeed;
+        eyey += lefty * movementSpeed;
+        eyez += leftz * movementSpeed;
 
-        centerx += leftx * v;
-        centery += lefty * v;
-        centerz += leftz * v;
+        centerx += leftx * movementSpeed;
+        centery += lefty * movementSpeed;
+        centerz += leftz * movementSpeed;
 
         break;
     }
@@ -515,13 +662,13 @@ void specialKeyListener(int key, int x, int y)
         rightz /= length;
 
         // Move the camera and reference point in the right direction
-        eyex -= rightx * v;
-        eyey -= righty * v;
-        eyez -= rightz * v;
+        eyex -= rightx * movementSpeed;
+        eyey -= righty * movementSpeed;
+        eyez -= rightz * movementSpeed;
 
-        centerx -= rightx * v;
-        centery -= righty * v;
-        centerz -= rightz * v;
+        centerx -= rightx * movementSpeed;
+        centery -= righty * movementSpeed;
+        centerz -= rightz * movementSpeed;
 
         break;
     }
@@ -540,13 +687,13 @@ void specialKeyListener(int key, int x, int y)
         cz /= length;
 
         // Move the camera and reference point along the vector by a single unit
-        eyex += cx * v;
-        eyey += cy * v;
-        eyez += cz * v;
+        eyex += cx * movementSpeed;
+        eyey += cy * movementSpeed;
+        eyez += cz * movementSpeed;
 
-        centerx += cx * v;
-        centery += cy * v;
-        centerz += cz * v;
+        centerx += cx * movementSpeed;
+        centery += cy * movementSpeed;
+        centerz += cz * movementSpeed;
 
         break;
     }
@@ -565,26 +712,26 @@ void specialKeyListener(int key, int x, int y)
         cz /= length;
 
         // Move the camera and reference point along the opposite direction of the vector by a single unit
-        eyex -= cx * v;
-        eyey -= cy * v;
-        eyez -= cz * v;
+        eyex -= cx * movementSpeed;
+        eyey -= cy * movementSpeed;
+        eyez -= cz * movementSpeed;
 
-        centerx -= cx * v;
-        centery -= cy * v;
-        centerz -= cz * v;
+        centerx -= cx * movementSpeed;
+        centery -= cy * movementSpeed;
+        centerz -= cz * movementSpeed;
 
         break;
     }
     case GLUT_KEY_PAGE_UP:
     {
         // Move the camera and reference point along the head vector by a single unit
-        eyex += upx * v;
-        eyey += upy * v;
-        eyez += upz * v;
+        eyex += upx * movementSpeed;
+        eyey += upy * movementSpeed;
+        eyez += upz * movementSpeed;
 
-        centerx += upx * v;
-        centery += upy * v;
-        centerz += upz * v;
+        centerx += upx * movementSpeed;
+        centery += upy * movementSpeed;
+        centerz += upz * movementSpeed;
 
         break;
     }
@@ -592,13 +739,13 @@ void specialKeyListener(int key, int x, int y)
     case GLUT_KEY_PAGE_DOWN:
     {
         // Move the camera and reference point along the opposite direction of the head vector by a single unit
-        eyex -= upx * v;
-        eyey -= upy * v;
-        eyez -= upz * v;
+        eyex -= upx * movementSpeed;
+        eyey -= upy * movementSpeed;
+        eyez -= upz * movementSpeed;
 
-        centerx -= upx * v;
-        centery -= upy * v;
-        centerz -= upz * v;
+        centerx -= upx * movementSpeed;
+        centery -= upy * movementSpeed;
+        centerz -= upz * movementSpeed;
 
         break;
     }
@@ -608,45 +755,6 @@ void specialKeyListener(int key, int x, int y)
 }
 
 // Simulate physics
-void updatePhysics(float deltaTime)
-{
-    // Update sphere position and velocity
-    sphere.positionx += sphere.velocityx * deltaTime;
-    sphere.positiony += sphere.velocityy * deltaTime;
-    sphere.positionz += sphere.velocityz * deltaTime;
-    sphere.velocityx += sphere.accelerationx * deltaTime;
-    sphere.velocityy += sphere.accelerationy * deltaTime;
-    sphere.velocityz += sphere.accelerationz * deltaTime;
-
-    // Check for collisions with floor
-    if (sphere.positiony - sphere.radius < 0)
-    {
-        // Collision detected, apply response
-        sphere.velocityy = -sphere.velocityy * 0.7; // bounce with damping
-        sphere.positiony = 0 + sphere.radius;        // move sphere to floor
-    }
-
-    // Add rolling and spinning behavior
-    if (sphere.velocityx != 0 || sphere.velocityz != 0)
-    {
-        // Calculate rolling velocity
-        float rollingVelocity = sqrt(sphere.velocityx * sphere.velocityx + sphere.velocityz * sphere.velocityz);
-
-        // Apply rolling friction
-        sphere.velocityx *= 0.9;
-        sphere.velocityz *= 0.9;
-
-        // Update sphere position based on rolling velocity
-        sphere.positionx += sphere.velocityx * deltaTime;
-        sphere.positionz += sphere.velocityz * deltaTime;
-    }
-
-    // Check if sphere has come to rest
-    // if (sphere.velocity.length() < 0.01)
-    // {
-    //     sphere.velocity = Vec3(0, 0, 0); // set velocity to zero
-    // }
-}
 
 /**
  * Draw coordinate axes
@@ -676,32 +784,21 @@ void drawAxes()
     glEnd();
 }
 
-/**
- * Draws a cube with a checkered floor pattern.
- *
- * The function sets up a 3D scene with a cube of fixed dimensions and colors.
- * It renders a checkered floor beneath the cube using alternating black and
- * white squares. The walls of the cube are colored with a specific color,
- * and the ceiling is colored differently. The cube is centered at the origin.
- */
-void drawCubeWithCheckeredFloor()
+void drawCheckeredFloor(float size, int tiles)
 {
-    // Set up the cube's dimensions
-    float cubeSize = 10.0f;
-
     // Set up the colors
     GLfloat white[] = {1.0f, 1.0f, 1.0f, 1.0f};
     GLfloat black[] = {0.0f, 0.0f, 0.0f, 1.0f};
-    GLfloat wallColor[] = {0.5f, 0.5f, 1.0f, 1.0f};
-    GLfloat ceilingColor[] = {1.0f, 0.5f, 0.5f, 1.0f};
 
-    // Draw the floor
+    float tileSize = size / tiles;
+
+    // Draw the floor on XZ plane starting from (0,0,0)
     glBegin(GL_QUADS);
-    for (int i = 0; i < 8; i++)
+    for (int x = 0; x < tiles; x++)
     {
-        for (int j = 0; j < 8; j++)
+        for (int z = 0; z < tiles; z++)
         {
-            if ((i + j) % 2 == 0)
+            if ((x + z) % 2 == 0)
             {
                 glColor4fv(white);
             }
@@ -709,141 +806,65 @@ void drawCubeWithCheckeredFloor()
             {
                 glColor4fv(black);
             }
-            glVertex3f(-cubeSize / 2 + i * cubeSize / 8, -cubeSize / 2, -cubeSize / 2 + j * cubeSize / 8);
-            glVertex3f(-cubeSize / 2 + (i + 1) * cubeSize / 8, -cubeSize / 2, -cubeSize / 2 + j * cubeSize / 8);
-            glVertex3f(-cubeSize / 2 + (i + 1) * cubeSize / 8, -cubeSize / 2, -cubeSize / 2 + (j + 1) * cubeSize / 8);
-            glVertex3f(-cubeSize / 2 + i * cubeSize / 8, -cubeSize / 2, -cubeSize / 2 + (j + 1) * cubeSize / 8);
+
+            glVertex3f(x * tileSize, 0.0f, z * tileSize);
+            glVertex3f((x + 1) * tileSize, 0.0f, z * tileSize);
+            glVertex3f((x + 1) * tileSize, 0.0f, (z + 1) * tileSize);
+            glVertex3f(x * tileSize, 0.0f, (z + 1) * tileSize);
         }
     }
     glEnd();
+}
+
+void drawCubeWithCheckeredFloor()
+{
+    // Set up the cube's dimensions
+
+    int tiles = cubeSize;
+    // Number of tiles in each direction
+
+    // Set up the colors
+    GLfloat wallColor[] = {0.5f, 1.0f, 0.5f, 1.0f};
+    GLfloat ceilingColor[] = {0.5f, 0.5f, 0.5f, 1.0f};
+
+    // Draw the checkered floor starting from origin
+    drawCheckeredFloor(cubeSize, tiles);
 
     // Draw the walls
     glBegin(GL_QUADS);
     glColor4fv(wallColor);
-    glVertex3f(-cubeSize / 2, -cubeSize / 2, -cubeSize / 2);
-    glVertex3f(cubeSize / 2, -cubeSize / 2, -cubeSize / 2);
-    glVertex3f(cubeSize / 2, cubeSize / 2, -cubeSize / 2);
-    glVertex3f(-cubeSize / 2, cubeSize / 2, -cubeSize / 2);
+    // Front wall
+    glVertex3f(0.0f, 0.0f, 0.0f);
+    glVertex3f(cubeSize, 0.0f, 0.0f);
+    glVertex3f(cubeSize, cubeSize, 0.0f);
+    glVertex3f(0.0f, cubeSize, 0.0f);
 
-    glVertex3f(-cubeSize / 2, -cubeSize / 2, cubeSize / 2);
-    glVertex3f(cubeSize / 2, -cubeSize / 2, cubeSize / 2);
-    glVertex3f(cubeSize / 2, cubeSize / 2, cubeSize / 2);
-    glVertex3f(-cubeSize / 2, cubeSize / 2, cubeSize / 2);
+    // Back wall
+    glVertex3f(0.0f, 0.0f, cubeSize);
+    glVertex3f(cubeSize, 0.0f, cubeSize);
+    glVertex3f(cubeSize, cubeSize, cubeSize);
+    glVertex3f(0.0f, cubeSize, cubeSize);
 
-    glVertex3f(-cubeSize / 2, -cubeSize / 2, -cubeSize / 2);
-    glVertex3f(-cubeSize / 2, -cubeSize / 2, cubeSize / 2);
-    glVertex3f(-cubeSize / 2, cubeSize / 2, cubeSize / 2);
-    glVertex3f(-cubeSize / 2, cubeSize / 2, -cubeSize / 2);
+    // Left wall
+    glVertex3f(0.0f, 0.0f, 0.0f);
+    glVertex3f(0.0f, 0.0f, cubeSize);
+    glVertex3f(0.0f, cubeSize, cubeSize);
+    glVertex3f(0.0f, cubeSize, 0.0f);
 
-    glVertex3f(cubeSize / 2, -cubeSize / 2, -cubeSize / 2);
-    glVertex3f(cubeSize / 2, -cubeSize / 2, cubeSize / 2);
-    glVertex3f(cubeSize / 2, cubeSize / 2, cubeSize / 2);
-    glVertex3f(cubeSize / 2, cubeSize / 2, -cubeSize / 2);
+    // Right wall
+    glVertex3f(cubeSize, 0.0f, 0.0f);
+    glVertex3f(cubeSize, 0.0f, cubeSize);
+    glVertex3f(cubeSize, cubeSize, cubeSize);
+    glVertex3f(cubeSize, cubeSize, 0.0f);
     glEnd();
 
     // Draw the ceiling
     glBegin(GL_QUADS);
     glColor4fv(ceilingColor);
-    glVertex3f(-cubeSize / 2, cubeSize / 2, -cubeSize / 2);
-    glVertex3f(cubeSize / 2, cubeSize / 2, -cubeSize / 2);
-    glVertex3f(cubeSize / 2, cubeSize / 2, cubeSize / 2);
-    glVertex3f(-cubeSize / 2, cubeSize / 2, cubeSize / 2);
-    glEnd();
-}
-
-/**
- * Draw a colored cube centered at the origin
- * Each face has a different color
- */
-void drawCube()
-{
-    glBegin(GL_QUADS);
-
-    // Top face (y = 1.0f) - Green
-    glColor3f(0.0f, 1.0f, 0.0f);
-    glVertex3f(1.0f, 1.0f, -1.0f);
-    glVertex3f(-1.0f, 1.0f, -1.0f);
-    glVertex3f(-1.0f, 1.0f, 1.0f);
-    glVertex3f(1.0f, 1.0f, 1.0f);
-
-    // Bottom face (y = -1.0f) - Orange
-    glColor3f(1.0f, 0.5f, 0.0f);
-    glVertex3f(1.0f, -1.0f, 1.0f);
-    glVertex3f(-1.0f, -1.0f, 1.0f);
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glVertex3f(1.0f, -1.0f, -1.0f);
-
-    // Front face  (z = 1.0f) - Red
-    glColor3f(1.0f, 0.0f, 0.0f);
-    glVertex3f(1.0f, 1.0f, 1.0f);
-    glVertex3f(-1.0f, 1.0f, 1.0f);
-    glVertex3f(-1.0f, -1.0f, 1.0f);
-    glVertex3f(1.0f, -1.0f, 1.0f);
-
-    // Back face (z = -1.0f) - Yellow
-    glColor3f(1.0f, 1.0f, 0.0f);
-    glVertex3f(1.0f, -1.0f, -1.0f);
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glVertex3f(-1.0f, 1.0f, -1.0f);
-    glVertex3f(1.0f, 1.0f, -1.0f);
-
-    // Left face (x = -1.0f) - Blue
-    glColor3f(0.0f, 0.0f, 1.0f);
-    glVertex3f(-1.0f, 1.0f, 1.0f);
-    glVertex3f(-1.0f, 1.0f, -1.0f);
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glVertex3f(-1.0f, -1.0f, 1.0f);
-
-    // Right face (x = 1.0f) - Magenta
-    glColor3f(1.0f, 0.0f, 1.0f);
-    glVertex3f(1.0f, 1.0f, -1.0f);
-    glVertex3f(1.0f, 1.0f, 1.0f);
-    glVertex3f(1.0f, -1.0f, 1.0f);
-    glVertex3f(1.0f, -1.0f, -1.0f);
-
-    glEnd();
-}
-
-/**
- * Draw a pyramid with color gradients
- * Base at y=-1, apex at y=1
- */
-void drawPyramid()
-{
-    glBegin(GL_TRIANGLES);
-
-    // Front face - Red to green to blue gradient
-    glColor3f(1.0f, 0.0f, 0.0f); // Red (apex)
-    glVertex3f(0.0f, 1.0f, 0.0f);
-    glColor3f(0.0f, 1.0f, 0.0f); // Green (front-left)
-    glVertex3f(-1.0f, -1.0f, 1.0f);
-    glColor3f(0.0f, 0.0f, 1.0f); // Blue (front-right)
-    glVertex3f(1.0f, -1.0f, 1.0f);
-
-    // Right face - Red to blue to green gradient
-    glColor3f(1.0f, 0.0f, 0.0f); // Red (apex)
-    glVertex3f(0.0f, 1.0f, 0.0f);
-    glColor3f(0.0f, 0.0f, 1.0f); // Blue (front-right)
-    glVertex3f(1.0f, -1.0f, 1.0f);
-    glColor3f(0.0f, 1.0f, 0.0f); // Green (back-right)
-    glVertex3f(1.0f, -1.0f, -1.0f);
-
-    // Back face - Red to green to blue gradient
-    glColor3f(1.0f, 0.0f, 0.0f); // Red (apex)
-    glVertex3f(0.0f, 1.0f, 0.0f);
-    glColor3f(0.0f, 1.0f, 0.0f); // Green (back-right)
-    glVertex3f(1.0f, -1.0f, -1.0f);
-    glColor3f(0.0f, 0.0f, 1.0f); // Blue (back-left)
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-
-    // Left face - Red to blue to green gradient
-    glColor3f(1.0f, 0.0f, 0.0f); // Red (apex)
-    glVertex3f(0.0f, 1.0f, 0.0f);
-    glColor3f(0.0f, 0.0f, 1.0f); // Blue (back-left)
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glColor3f(0.0f, 1.0f, 0.0f); // Green (front-left)
-    glVertex3f(-1.0f, -1.0f, 1.0f);
-
+    glVertex3f(0.0f, cubeSize, 0.0f);
+    glVertex3f(cubeSize, cubeSize, 0.0f);
+    glVertex3f(cubeSize, cubeSize, cubeSize);
+    glVertex3f(0.0f, cubeSize, cubeSize);
     glEnd();
 }
 
@@ -857,11 +878,10 @@ void drawPyramid()
 void timerFunction(int value)
 {
     // Update animation values
-    cout << "Timer function called" << endl;
+    // cout << "Timer function called" << endl;
     time_t currentTime = time(NULL);
     struct tm *timeInfo = localtime(&currentTime);
-    updatePhysics((float)(animationSpeed)/ 1000.0f);
-
+    if(paused == false) {updatePhysics((float)(animationSpeed));}
     // Request a redisplay
     glutPostRedisplay();
 
@@ -889,20 +909,9 @@ int main(int argc, char **argv)
     glutKeyboardFunc(keyboardListener);
     glutSpecialFunc(specialKeyListener);
     glutTimerFunc(animationSpeed, timerFunction, 0);
-
+    initSphere();
     // Initialize OpenGL settings
     initGL();
-    sphere.positionx = 0.5f;
-    sphere.positiony = 0;
-    sphere.positionz = 0.5f;
-    sphere.velocityx = 10.0f;
-    sphere.velocityy = 10.0f;
-    sphere.velocityz = 10.0f;
-    sphere.accelerationx = 0;
-    sphere.accelerationy = -9.8;
-    sphere.accelerationz = 0;
-    sphere.radius = 0.5;
-    sphere.mass = 1.0;
 
     // Enter the GLUT event loop
     glutMainLoop();
