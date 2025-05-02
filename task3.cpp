@@ -28,7 +28,7 @@ using namespace std;
 /// @brief the force which is applied to the sphere towards land
 float gravity = -9.8f;
 /// @brief the coefficient of friction when it rolls on the ground
-float friction = 0.98f; 
+float friction = 0.98f;
 /// @brief  the percentage of force that helps the ball to bounce back from the floor after a collision
 float restitution = 0.8f;
 /// @brief defines the size of the cube with checkered floor
@@ -37,7 +37,14 @@ float cubeSize = 20.0f;
 float pi = 3.14159f;
 /// @brief increase of ball velocity per plus key press
 float increasePerPlus = 10.0f;
+/// @brief How quickly tthe sphere's angular velocity adjusts towards its ideal value when it hits a surface
+const float rollMatchFactor = 0.5f;
+/// @brief Limits how fast the sphere is allowed to rotate
+const float maxAngularSpeed = 50.0f;
+/// @brief  quadric to draw the sphere
 GLUquadricObj *quadric;
+
+/// @brief Now below are the original values of the sphere
 
 float originalSphereRadius = 0.5f;
 float originalSphereMass = 1.0f;
@@ -48,23 +55,22 @@ float originalSphereRotationAngle[] = {0.0f, 0.0f, 0.0f};
 float originalSphereColor[] = {0.8f, 0.2f, 0.2f};
 
 // --- Global Variables ---
-
+/// @brief animation speed or how much will be the period between two timer function calls
 int animationSpeed = 10;
-// Camera position and orientation
+/// @brief Camera position and orientation
 GLfloat eyex = 4, eyey = 4, eyez = 4;          // Camera position coordinates
 GLfloat centerx = 0, centery = 0, centerz = 0; // Look-at point coordinates
 GLfloat upx = 0, upy = 1, upz = 0;             // Up vector coordinates
 
-float movementSpeed = 0.3f;
-float rotationSpeed = 0.1f;
+float movementSpeed = 0.3f; // Speed of camera movement
+float rotationSpeed = 0.1f; // Speed of camera rotation
 
 // Object visibility flags
 bool isAxes = true;     // Toggle for coordinate axes
 bool isCube = false;    // Toggle for cube
 bool isPyramid = false; // Toggle for pyramid
-bool paused = true;
-
-float ballSpeedOriginal = 0.1f;
+bool paused = true;     // Toggle for pausing the animation
+bool showArrow = true;  // Toggle for showing the arrow
 
 // --- Function Declarations ---
 void initGL();
@@ -90,17 +96,19 @@ void initGL()
 /// @brief struct which represents a sphere
 typedef struct
 {
-    float radius;
-    float mass;
-    float position[3];
-    float velocity[3];
-    float angularVelocity[3];
-    float rotationAngle[3];
-    float color[3];
+    float radius;             // Radius of the sphere
+    float mass;               // Mass of the sphere
+    float position[3];        // Position vector of the sphere
+    float velocity[3];        // Velocity vector of the sphere
+    float angularVelocity[3]; // Angular velocity vector of the sphere
+    float rotationAngle[3];   // Rotation angle vector of the sphere
+
 } Sphere;
 
+/// @brief sphere object we are going to use
 Sphere sphere;
 
+/// @brief set all the values of the sphere to their original values defined above
 void initSphere()
 {
     sphere.radius = originalSphereRadius;
@@ -117,44 +125,46 @@ void initSphere()
     sphere.rotationAngle[0] = originalSphereRotationAngle[0];
     sphere.rotationAngle[1] = originalSphereRotationAngle[1];
     sphere.rotationAngle[2] = originalSphereRotationAngle[2];
-    sphere.color[0] = originalSphereColor[0];
-    sphere.color[1] = originalSphereColor[1];
-    sphere.color[2] =originalSphereColor[2];
 
     quadric = gluNewQuadric();
     gluQuadricNormals(quadric, GLU_SMOOTH);
 }
 
-void stripeColor(GLfloat* color, float angle) {
-    int stripe = (int)(angle / (2 * pi / 6)) % 2;
+/// @brief  to add the stripes to the sphere
+/// @param color the two colors we want add to the sphere
+/// @param angle the angle of the sphere colors
+void stripeColor(GLfloat *color, float angle)
+{
+    // makes 18 stripes at the longitude of the sphere
+    int stripe = (int)(angle / (2 * pi / 18)) % 2;
     if (stripe == 0)
     {
-        color[0] = 0.8f; // Red
-        color[1] = 0.2f;
-        color[2] = 0.2f;
+        color[0] = 1.0f; // Red
+        color[1] = 0.0f;
+        color[2] = 0.0f;
     }
     else
-    {
-        color[0] = 0.2f; // Green
-        color[1] = 0.8f;
-        color[2] = 0.2f;
+    { // Green
+        color[0] = 0.0f;
+        color[1] = 1.0f;
+        color[2] = 0.0f;
     }
 }
 
-void drawSphere() {
-    glPushMatrix();
-    glTranslatef(sphere.position[0], sphere.position[1], sphere.position[2]);
-    glRotatef(sphere.rotationAngle[0], 1.0f, 0.0f, 0.0f);
-    glRotatef(sphere.rotationAngle[1], 0.0f, 1.0f, 0.0f);
-    glRotatef(sphere.rotationAngle[2], 0.0f, 0.0f, 1.0f);
+/// @brief draw the sphere with the given color stripes
+void drawSphere()
+{
+    glPushMatrix(); // save the current GL state
 
+    glTranslatef(sphere.position[0], sphere.position[1], sphere.position[2]); // position the sphere using the position vector
+    glRotatef(sphere.rotationAngle[0], 1.0f, 0.0f, 0.0f);                     // apply rotation to the x axis
+    glRotatef(sphere.rotationAngle[1], 0.0f, 1.0f, 0.0f);                     // apply rotation to the y axis
+    glRotatef(sphere.rotationAngle[2], 0.0f, 0.0f, 1.0f);                     // apply rotation to the z axis
 
-    // glColor3f(sphere.color[0], sphere.color[1], sphere.color[2]);
-
-    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_COLOR_MATERIAL); // enable color material to track GLcolor
     gluQuadricCallback(quadric, GLU_ERROR, NULL);
-    gluQuadricDrawStyle(quadric, GLU_FILL);
-    gluQuadricNormals(quadric, GLU_SMOOTH);
+    gluQuadricDrawStyle(quadric, GLU_FILL); // fills surface style
+    gluQuadricNormals(quadric, GLU_SMOOTH); // configure a quadric object to draw smooth surfaces
     gluQuadricTexture(quadric, GL_TRUE);
 
     // Set up the color callback
@@ -162,8 +172,10 @@ void drawSphere() {
     glBegin(GL_TRIANGLE_STRIP);
     for (float phi = 0; phi < pi; phi += pi / 20)
     {
+        // it goes vertically from the top to the bottom, in 20 steps
         for (float theta = 0; theta <= 2 * pi; theta += pi / 20)
         {
+            // it goes around the sphere in 40 steps horizontally
             stripeColor(color, theta);
             glColor3fv(color);
             glVertex3f(
@@ -185,47 +197,93 @@ void drawSphere() {
     glPopMatrix();
 }
 
+/// @brief this function draws the velocity arrow of the sphere using the velocity vector of the sphere
+void drawVelocityArrow()
+{
+    float speed = sqrt(sphere.velocity[0] * sphere.velocity[0] +
+                       sphere.velocity[1] * sphere.velocity[1] +
+                       sphere.velocity[2] * sphere.velocity[2]); // calculating the speed magnitude
+
+    if (speed == 0.0f)
+        return; /// we wont show the vector if there is no speed
+
+    glPushMatrix();
+    glTranslatef(sphere.position[0], sphere.position[1], sphere.position[2]); // we are finding the position vector of the sphere to start the speed arrow
+
+    // Calculate arrow direction (normalized velocity)
+    float dirX = sphere.velocity[0] / speed;
+    float dirY = sphere.velocity[1] / speed;
+    float dirZ = sphere.velocity[2] / speed;
+
+    // Scale arrow length proportional to velocity magnitude
+    float arrowLength = speed * 0.5f; // Adjust scale factor as needed, and multiply with speed to show the arrow length proportional to speed
+    float headLength = 0.2f;          // we want the head length to be a bit longer, but constant size
+    float headWidth = 0.1f;           // we want the head width to be a bit smaller, but constant size
+
+    // Set arrow color (red)
+    glColor3f(1.0f, 0.0f, 0.0f);
+    glLineWidth(2.0f); // making the line width bigger to make it more visible
+
+    // Draw arrow shaft
+    glBegin(GL_LINES);
+    glVertex3f(0, 0, 0);                                                    // start at the ccenter of the sphere
+    glVertex3f(dirX * arrowLength, dirY * arrowLength, dirZ * arrowLength); // end the arrow line at the direction of the velocity
+    glEnd();
+
+    // Draw arrow head (cone)
+    glPushMatrix();
+    glTranslatef(dirX * arrowLength, dirY * arrowLength, dirZ * arrowLength); // Now we are at the end of the arrow
+
+    // Rotate to point in velocity direction
+    float angle = acos(dirY) * 180.0f / pi;
+    float axisX = -dirZ;
+    float axisZ = dirX;
+
+    if (fabs(angle) > 0.001f)
+    {
+        glRotatef(angle, axisX, 0.0f, axisZ);
+    }
+
+    glutSolidCone(headWidth, headLength, 8, 1); // make the arrow head a solid cone
+    glPopMatrix();
+
+    glPopMatrix();
+}
+
+/// @brief this function checks for collisions for the sphere in all directions. that could be on the roof, on the 4 walls or bouncing off the floor. This method also check for rotation and angular rotational increase when the sphere collides with a surface like in the real world.
 void checkCollisions()
 {
-    const float rollMatchFactor = 0.5f;  // How quickly to align angular velocity to ideal rolling
-    const float maxAngularSpeed = 50.0f; // Optional angular velocity clamp
 
     // Floor collision (Y-axis)
     if (sphere.position[1] - sphere.radius <= 0.0f)
     {
-        sphere.position[1] = sphere.radius; // Prevent sinking
-        sphere.velocity[1] = -sphere.velocity[1] * restitution;
+        sphere.position[1] = sphere.radius;                     // Prevent sinking through the floor by positioning the center of the sphere minimum redius above the floor
+        sphere.velocity[1] = -sphere.velocity[1] * restitution; // as the sphere hits the floor, its velocity changes in the opposite direction with fraction of restitution
 
         // Apply friction to horizontal velocities
-        sphere.velocity[0] *= friction;
-        sphere.velocity[2] *= friction;
+        sphere.velocity[0] *= friction; // as the sphere hits the floor, its horizontal x velocity remains at the same direction but with a fraction of friction
+        sphere.velocity[2] *= friction; // as the sphere hits the floor, its horizontal z velocity remains at the same direction but with a fraction of friction
 
-        // Calculate ideal angular velocity for rolling
-        float idealAngularX = sphere.velocity[2] / sphere.radius;
-        float idealAngularZ = -sphere.velocity[0] / sphere.radius;
-
-        // Smoothly transition to rolling angular velocity
-        sphere.angularVelocity[0] += (idealAngularX - sphere.angularVelocity[0]) * rollMatchFactor;
-        sphere.angularVelocity[2] += (idealAngularZ - sphere.angularVelocity[2]) * rollMatchFactor;
+        // sphere.angularVelocity[0] += sphere.velocity[2] / sphere.radius;
+        // sphere.angularVelocity[2] += -sphere.velocity[0] / sphere.radius;
     }
 
     // Wall collisions (X-axis)
     if (sphere.position[0] - sphere.radius <= 0.0f)
     {
-        sphere.position[0] = sphere.radius;
-        sphere.velocity[0] = -sphere.velocity[0] * restitution;
+        sphere.position[0] = sphere.radius; // set the sphere position to radius away from the wall
+        sphere.velocity[0] = -sphere.velocity[0] * restitution; // the velocity will be in the opposite direction
 
         // Smoothly adjust Y-axis rotation
-        float idealAngularY = -sphere.velocity[2] / sphere.radius;
-        sphere.angularVelocity[1] += (idealAngularY - sphere.angularVelocity[1]) * rollMatchFactor;
+
+        // sphere.angularVelocity[1] += -sphere.velocity[2] / sphere.radius;
     }
     if (sphere.position[0] + sphere.radius >= cubeSize)
     {
-        sphere.position[0] = cubeSize - sphere.radius;
-        sphere.velocity[0] = -sphere.velocity[0] * restitution;
+        sphere.position[0] = cubeSize - sphere.radius; // set the sphere position to radius away from the wall
+        sphere.velocity[0] = -sphere.velocity[0] * restitution; // the velocity will be in the opposite direction
 
-        float idealAngularY = -sphere.velocity[2] / sphere.radius;
-        sphere.angularVelocity[1] += (idealAngularY - sphere.angularVelocity[1]) * rollMatchFactor;
+        // sphere.angularVelocity[1] += -sphere.velocity[2] / sphere.radius;
     }
 
     // Wall collisions (Z-axis)
@@ -234,16 +292,14 @@ void checkCollisions()
         sphere.position[2] = sphere.radius;
         sphere.velocity[2] = -sphere.velocity[2] * restitution;
 
-        float idealAngularY = sphere.velocity[0] / sphere.radius;
-        sphere.angularVelocity[1] += (idealAngularY - sphere.angularVelocity[1]) * rollMatchFactor;
+        // sphere.angularVelocity[1] += sphere.velocity[0] / sphere.radius;
     }
     if (sphere.position[2] + sphere.radius >= cubeSize)
     {
         sphere.position[2] = cubeSize - sphere.radius;
         sphere.velocity[2] = -sphere.velocity[2] * restitution;
 
-        float idealAngularY = sphere.velocity[0] / sphere.radius;
-        sphere.angularVelocity[1] += (idealAngularY - sphere.angularVelocity[1]) * rollMatchFactor;
+        // sphere.angularVelocity[1] += sphere.velocity[0] / sphere.radius;
     }
 
     // Ceiling collision (Y-axis top)
@@ -251,15 +307,6 @@ void checkCollisions()
     {
         sphere.position[1] = cubeSize - sphere.radius;
         sphere.velocity[1] = -sphere.velocity[1] * restitution;
-    }
-
-    // Optional: Clamp angular velocity
-    for (int i = 0; i < 3; ++i)
-    {
-        if (sphere.angularVelocity[i] > maxAngularSpeed)
-            sphere.angularVelocity[i] = maxAngularSpeed;
-        else if (sphere.angularVelocity[i] < -maxAngularSpeed)
-            sphere.angularVelocity[i] = -maxAngularSpeed;
     }
 }
 
@@ -270,26 +317,32 @@ void updatePhysics(int deltaTime)
     float dt = deltaTime / 1000.0f; // Convert to seconds
 
     // Apply gravity
-    sphere.velocity[1] += gravity * dt;
+    sphere.velocity[1] += gravity * dt; // in every moment, the sphere will be affected by gravity
 
     // Update position
-    sphere.position[0] += sphere.velocity[0] * dt;
+    sphere.position[0] += sphere.velocity[0] * dt; // now the sphere is moving according to its velocity
     sphere.position[1] += sphere.velocity[1] * dt;
     sphere.position[2] += sphere.velocity[2] * dt;
 
-    // Update rotation
+    checkCollisions(); // check for collisions
+
+    // Calculate angular velocity according to velocity and radius
+    sphere.angularVelocity[0] = sphere.velocity[2] / sphere.radius; 
+    sphere.angularVelocity[1] = 0;                     
+    sphere.angularVelocity[2] = -sphere.velocity[0] / sphere.radius;
+
+    // Dampen angular velocity
+    // sphere.angularVelocity[0] *= friction;
+    // sphere.angularVelocity[1] *= friction;
+    // sphere.angularVelocity[2] *= friction;
+
+    // Update rotation according to angular velocity
     sphere.rotationAngle[0] += sphere.angularVelocity[0] * dt * 180.0f / pi;
     sphere.rotationAngle[1] += sphere.angularVelocity[1] * dt * 180.0f / pi;
     sphere.rotationAngle[2] += sphere.angularVelocity[2] * dt * 180.0f / pi;
 
-    // Dampen angular velocity
-    sphere.angularVelocity[0] *= friction;
-    sphere.angularVelocity[1] *= friction;
-    sphere.angularVelocity[2] *= friction;
-
-    // Check for collisions
-    cout << "Sphere position: (" << sphere.position[0] << ", " << sphere.position[1] << ", " << sphere.position[2] << ")" << endl;
-    checkCollisions();
+    // Just to find out the current position for the sphere
+    // cout << "Sphere position: (" << sphere.position[0] << ", " << sphere.position[1] << ", " << sphere.position[2] << ")" << endl;
 }
 /**
  * Main display function
@@ -312,6 +365,10 @@ void display()
     // Draw objects based on visibility flags
     drawCubeWithCheckeredFloor();
     drawSphere();
+    if (showArrow)
+    {
+        drawVelocityArrow();
+    }
     if (isAxes)
         drawAxes();
 
@@ -623,11 +680,8 @@ void keyboardListener(unsigned char key, int x, int y)
         break;
     }
     case 's':
-    {
-        // Move camera down
         eyey -= movementSpeed;
-        break;
-    }
+        break; // Move camera down withiout changing the refernce point
 
     case 't':
         centerz += movementSpeed;
@@ -657,8 +711,10 @@ void keyboardListener(unsigned char key, int x, int y)
         paused = !paused;
         break;
     case 'r':
-        initSphere();
-        paused = true;
+        if (paused)
+        {
+            initSphere(); // only reset key is appliable if paused currently
+        }
         break;
 
     // --- Object Visibility Toggles ---
@@ -671,6 +727,9 @@ void keyboardListener(unsigned char key, int x, int y)
     case 'p':
         isPyramid = !isPyramid;
         break; // Toggle pyramid
+    case 'v':
+        showArrow = !showArrow; // toggle the arrow of the sphere velocity
+        break;
 
     // --- Program Control ---
     case 27:
@@ -964,7 +1023,10 @@ void timerFunction(int value)
     // cout << "Timer function called" << endl;
     time_t currentTime = time(NULL);
     struct tm *timeInfo = localtime(&currentTime);
-    if(paused == false) {updatePhysics((float)(animationSpeed));}
+    if (paused == false)
+    {
+        updatePhysics((float)(animationSpeed));
+    }
     // Request a redisplay
     glutPostRedisplay();
 
